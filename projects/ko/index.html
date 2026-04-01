@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>박건우 — EyEar</title>
+  <meta name="description" content="박건우의 포트폴리오 웹사이트입니다. AI 기반 웨어러블 수어 번역 프로젝트 'EyEar'에 대해 소개합니다.">
+  <meta name="theme-color" content="#111111">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+  <div class="progress-bar" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="container nav-shell">
+      <a class="brand" href="#overview">박건우 (PARK Gunwoo)</a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="#overview" data-section="overview">개요</a>
+<a href="#scope" data-section="scope">역할 및 범위</a>
+<a href="#architecture" data-section="architecture">아키텍처</a>
+<a href="#decisions" data-section="decisions">설계 결정</a>
+<a href="#implementation" data-section="implementation">구현 상세</a>
+<a href="#results" data-section="results">결과 및 성과</a>
+<a href="#gallery" data-section="gallery">갤러리</a>
+<a href="#notes" data-section="notes">회고</a>
+      </nav>
+      <!-- 한국어 페이지이므로 영어 페이지로 돌아가는 링크로 설정 -->
+      <a class="lang-link" href="../" lang="en" hreflang="en">EN</a>
+    </div>
+  </header>
+
+  <main>
+    
+<section id="overview" class="hero section">
+  <div class="container">
+    <p class="eyebrow reveal">박건우 · 졸업 프로젝트 · 2024–2025</p>
+    <h1 class="reveal">EyEar</h1>
+    <p class="lead reveal">엣지 AI 서버와 라즈베리 파이 기반의 스마트 글래스 프로토타입을 활용한 양방향 수어 번역 웨어러블 디바이스입니다. 수어를 텍스트로(Sign-to-Text), 음성을 수어로(Speech-to-Sign) 변환하는 두 가지 추론 경로를 지원합니다.</p>
+    <p class="caption-lead reveal">저는 이 프로젝트에서 AI 파이프라인 설계, 디바이스와 서버 간의 시스템 아키텍처 구축, 그리고 웨어러블 디바이스 단의 구현을 담당했습니다. 이 페이지는 제가 담당했던 파트의 기술적 요약을 담고 있습니다.</p>
+
+    <div class="meta-grid reveal">
+      <div class="meta-item"><strong>프로젝트</strong><span>양방향 수어 번역 웨어러블</span></div>
+      <div class="meta-item"><strong>담당 분야</strong><span>AI 파이프라인, 시스템 아키텍처, 웨어러블 디바이스 통합</span></div>
+      <div class="meta-item"><strong>사용 기술</strong><span>MediaPipe, Transformer, Wav2Vec2, Flask-SocketIO, Raspberry Pi Zero 2 W</span></div>
+      <div class="meta-item"><strong>데이터셋</strong><span>Sign-to-Text용 WLASL, 문장 단위 수어 생성을 위한 How2Sign</span></div>
+    </div>
+
+    <figure class="hero-figure reveal" data-lightbox>
+  <img src="../assets/img/hero-front.jpg" alt="안경에 장착된 EyEar 최종 웨어러블 프로토타입의 정면 모습." loading="lazy">
+  <figcaption>최종 웨어러블 프로토타입 (클릭하여 확대)</figcaption>
+</figure>
+
+    <div class="callout reveal">
+      <p>이 프로젝트의 핵심은 단순히 모델을 오프라인에서 구동하는 것에 그치지 않았습니다. 웨어러블 시스템으로 확장됨에 따라, 데이터 표현 방식, 통신 지연, 추론 연산의 분배, 출력 포맷 등 모델의 단순 정확도만큼이나 시스템 전반의 최적화가 중요했습니다.</p>
+    </div>
+  </div>
+</section>
+
+<section id="scope" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">01 · Scope</span>
+      <h2>집중한 영역</h2>
+      <p>저는 이 프로젝트를 단순한 모델링이 아닌, 하나의 통합된 시스템으로 접근했습니다. AI 모델, 서버, 디바이스, 그리고 물리적인 폼팩터가 유기적으로 맞물려 동작하도록 설계했습니다.</p>
+    </div>
+
+    <div class="scope-grid">
+      <article class="scope-card reveal">
+        <h3>AI 파이프라인 설계</h3>
+        <p>제품 내에서 AI 모델의 위치와 역할을 정의했습니다. 디바이스에서 처리할 작업과 엣지 서버로 넘길 작업을 분류하고, 두 가지 번역 경로를 어떻게 분리할지, 그리고 카메라 노이즈와 독립적으로 모델 자체의 성능을 어떻게 평가할지 고민했습니다.</p>
+      </article>
+      <article class="scope-card reveal">
+        <h3>시스템 아키텍처</h3>
+        <p>단순한 디바이스 단일 데모를 넘어 엣지 AI 구조를 도입했습니다. 이를 위해 통신 지연 시간(Latency) 예산, 데이터 전송 비용, API 통신 규격, 그리고 웨어러블 디스플레이에 적합한 출력 형태를 정밀하게 설계했습니다.</p>
+      </article>
+      <article class="scope-card reveal">
+        <h3>웨어러블 디바이스 구현</h3>
+        <p>하드웨어 스키매틱(회로도) 기획부터 프로토타입 제작, 최종 조립까지 웨어러블 파트를 전담했습니다. 라즈베리 파이 통합, 카메라/디스플레이/마이크 제어 로직 작성 및 단위 테스트를 수행했습니다.</p>
+      </article>
+      <article class="scope-card reveal">
+        <h3>시스템 레벨 디버깅</h3>
+        <p>프로젝트의 실질적인 진전은 수많은 예외 상황을 해결하는 과정에서 이루어졌습니다. 카메라 빛 반사, 중심을 벗어난 수어 동작, 주변 소음, 네트워크 패킷 지연 등 소형 기기라는 제약 속에서 AI가 직면하는 엣지 케이스(Edge cases)를 다루었습니다.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="architecture" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">02 · Architecture</span>
+      <h2>시스템 아키텍처</h2>
+      <p>웨어러블 디바이스는 데이터 캡처와 결과 출력을 전담하고, 연산량이 많은 추론 및 데이터 처리는 엣지 서버가 담당하도록 시스템을 분리했습니다.</p>
+    </div>
+
+    <div class="diagram reveal">
+      <div class="diagram-row">
+        <div class="diagram-node">
+          <h3>웨어러블 디바이스</h3>
+          <ul>
+            <li>IMX219 카메라</li>
+            <li>USB 마이크</li>
+            <li>GC9107 디스플레이</li>
+            <li>라즈베리 파이 Zero 2 W</li>
+          </ul>
+        </div>
+        <div class="diagram-arrow">→</div>
+        <div class="diagram-node">
+          <h3>엣지 서버</h3>
+          <ul>
+            <li>MediaPipe 전처리</li>
+            <li>Sign-to-Text 분류기</li>
+            <li>Speech-to-Text + Text-to-Sign</li>
+            <li>API / WebSocket 계층</li>
+          </ul>
+        </div>
+        <div class="diagram-arrow">→</div>
+        <div class="diagram-node">
+          <h3>반환된 결과</h3>
+          <ul>
+            <li>HUD 디스플레이 내 텍스트 출력</li>
+            <li>생성된 수어 애니메이션</li>
+            <li>타이밍 및 진단 데이터</li>
+          </ul>
+        </div>
+      </div>
+      <p class="diagram-note">라즈베리 파이는 입출력(I/O)과 통신을, GPU 기반 서버는 웨어러블이 감당하기 힘든 무거운 추론 작업을 처리합니다.</p>
+    </div>
+
+    <div class="pipeline-grid" style="margin-top:16px;">
+      <article class="pipeline-card reveal">
+        <h3>수어 → 텍스트 (Sign-to-Text) 경로</h3>
+        <p>이 경로는 시퀀스 분류(Sequence classification) 문제로 접근했습니다.</p>
+        <div class="pipeline-code">카메라 캡처
+→ 엣지 서버로 업로드 / 스트리밍
+→ MediaPipe (자세, 얼굴, 손 키포인트)
+→ 시퀀스 윈도우 정규화
+→ Transformer 분류기
+→ 단어 예측
+→ 웨어러블 디스플레이로 텍스트 반환</div>
+      </article>
+      <article class="pipeline-card reveal">
+        <h3>음성 → 수어 (Speech-to-Sign) 경로</h3>
+        <p>이 경로는 문장 기반 모션 생성(Sentence-to-motion generation) 문제로 접근했습니다.</p>
+        <div class="pipeline-code">마이크 캡처
+→ Speech-to-Text (Wav2Vec2)
+→ 문장 토큰화
+→ Text-to-Sign Transformer
+→ BFH 키포인트 시퀀스 도출
+→ 골격 렌더링 및 애니메이션화
+→ 디바이스로 결과 반환</div>
+      </article>
+    </div>
+
+    <div class="architecture-grid" style="margin-top:16px;">
+      <figure class="figure-frame reveal" data-lightbox>
+  <img src="../assets/img/flowchart.png" alt="웨어러블 기기와 서버 간의 통신 과정을 나타낸 플로우차트." loading="lazy">
+  <figcaption>웨어러블과 서버 간의 통신 흐름도.</figcaption>
+</figure>
+      <figure class="figure-frame reveal" data-lightbox>
+  <img src="../assets/img/architecture.png" alt="웨어러블 및 엣지 서버의 구성 요소를 보여주는 시스템 다이어그램." loading="lazy">
+  <figcaption>프로젝트 보고서에 수록된 시스템 다이어그램.</figcaption>
+</figure>
+    </div>
+  </div>
+</section>
+
+<section id="decisions" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">03 · Decisions</span>
+      <h2>AI 시스템을 완성한 핵심 설계 결정</h2>
+      <p>프로젝트의 주요 의사결정은 단순히 개별 모델의 성능을 높이는 것이 아니라, 시스템 전체에서 AI가 어떻게 안정적으로 동작할 것인가에 맞춰졌습니다.</p>
+    </div>
+
+    <div class="decision-grid">
+      <article class="decision-card reveal">
+        <span class="decision-no">결정 01</span>
+        <h3>분류 전 구조화된 키포인트 사용</h3>
+        <p>시각적으로 복잡한 원본 영상을 웨어러블에서부터 끝까지 처리하는 것은 비효율적이었습니다. 키포인트(Keypoint) 방식은 수어 데이터를 정규화하고 시퀀스를 나누기 쉽게 만들었으며, 엣지 서버 환경에 훨씬 적합했습니다.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">결정 02</span>
+        <h3>인식과 생성 경로의 완벽한 분리</h3>
+        <p>수어를 텍스트로 바꾸는 것과 음성을 수어로 바꾸는 것은 완전히 다른 문제입니다. 전자는 제스처 시퀀스 분류이고, 후자는 문장 조건부 모션 생성입니다. 이를 분리함으로써 구조가 명확해지고 각 태스크에 맞는 데이터셋을 적용할 수 있었습니다.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">결정 03</span>
+        <h3>무거운 추론 작업은 엣지 서버로 이관</h3>
+        <p>라즈베리 파이 Zero 2 W는 캡처, 디스플레이, 네트워크 전송에는 충분했지만 전체 추론을 감당하기엔 무리였습니다. 모델을 엣지 서버로 옮김으로써 기기 구조를 단순화하고 파이프라인 반복 개선을 용이하게 만들었습니다.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">결정 04</span>
+        <h3>시간적 문맥 처리를 위한 시퀀스 모델 채택</h3>
+        <p>이 시스템은 단순한 프레임이 아닌 '시간(Time)'을 다뤄야 했습니다. 시간적 추론, 더 큰 어휘집(Vocabulary), 순차적 종속성을 깔끔하게 처리하기 위해 Transformer 기반의 시퀀스 모델을 아키텍처의 중심으로 삼았습니다.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">결정 05</span>
+        <h3>두 경로에 각기 다른 데이터셋 적용</h3>
+        <p>Sign-to-Text의 고립 단어 인식에는 WLASL이, Speech-to-Sign의 문장 단위 생성에는 How2Sign이 적합했습니다. 하나의 데이터셋이나 모델에 모든 것을 억지로 맞추기보다, 각 태스크의 실제 목적에 맞는 데이터를 선택했습니다.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">결정 06</span>
+        <h3>성능 평가 시 캡처 품질과 모델 자체 성능의 분리</h3>
+        <p>라이브 수어 테스트는 카메라 품질, 사용자 숙련도, 프레이밍 등 통제하기 어려운 변수가 너무 많았습니다. 통제된 MP4 영상 입력을 별도로 사용하여 분류기의 순수 성능과 실제 병목 구간을 명확히 파악했습니다.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">결정 07</span>
+        <h3>Sign-to-Text 출력은 직관적으로 유지</h3>
+        <p>데모 시연 시 모델의 오류를 숨기기 위해 언어 처리 레이어(Language layer)를 억지로 추가하기보다는, 단어 수준의 결과물을 디스플레이에 바로 띄우는 방식을 택했습니다. 이를 통해 시스템 디버깅이 수월해졌고 추가적인 지연 시간(Latency) 발생을 막았습니다.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">결정 08</span>
+        <h3>AI 파이프라인 요구사항에 맞춘 하드웨어 조정</h3>
+        <p>하드웨어는 철저히 파이프라인에 맞춰 조정되었습니다. 웨어러블 폼팩터를 깔끔하게 만들기 위해 디스플레이 크기를 줄였고, 음성 인식 품질 향상을 위해 더 나은 마이크 모듈을 도입하는 등 입력 성능 개선에 주력했습니다.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="implementation" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">04 · Implementation</span>
+      <h2>구현 상세</h2>
+      <p>최종 시스템은 AI 추론, 네트워크 통신, 임베디드 소프트웨어, 그리고 웨어러블 하드웨어 프로토타입이 결합된 형태입니다.</p>
+    </div>
+
+    <div class="impl-grid">
+      <article class="block reveal">
+        <h3>AI 스택</h3>
+        <ul class="list-tight">
+          <li>MediaPipe 키포인트 추출 및 Transformer 분류기 기반의 Sign-to-Text 처리</li>
+          <li>Speech-to-Text + Text-to-Sign + 골격 렌더링 방식의 Speech-to-Sign 처리</li>
+          <li>BFH 키포인트 시퀀스를 활용한 문장 단위 수어 생성</li>
+          <li>인식과 생성을 위한 독립적인 데이터 흐름(Data flow) 구축</li>
+        </ul>
+      </article>
+      <article class="block reveal">
+        <h3>웨어러블 스택</h3>
+        <ul class="list-tight">
+          <li>메인 컴퓨팅 보드: 라즈베리 파이 Zero 2 W</li>
+          <li>수어 영상 캡처용 IMX219 카메라</li>
+          <li>텍스트 출력용 GC9107 HUD 디스플레이</li>
+          <li>음성 입력을 위한 USB 마이크 모듈 연동</li>
+        </ul>
+      </article>
+      <article class="block reveal">
+        <h3>네트워크 및 통신 계층</h3>
+        <ul class="list-tight">
+          <li>웨어러블 디바이스와 서버 간의 Wi-Fi 연결</li>
+          <li>지속적인 데이터 교환을 위한 REST API 및 WebSocket 적용</li>
+          <li>영상, 음성 처리 및 결과 페이로드(Payload) 반환을 위한 서버 로직 구현</li>
+          <li>통신 지연과 추론 연산 지연을 분리하여 분석하기 위한 타이밍 로그 구축</li>
+        </ul>
+      </article>
+      <article class="block reveal">
+        <h3>임베디드 애플리케이션</h3>
+        <ul class="list-tight">
+          <li>라즈베리 파이 OS 환경 세팅 및 주변기기 통합 제어</li>
+          <li>기기 내에서 디스플레이, 카메라, 마이크를 제어하는 애플리케이션 개발</li>
+          <li>서버 연동 전 패킷 시뮬레이션을 통한 사전 단위 테스트 진행</li>
+          <li>스마트 글래스 형태를 고려한 최종 프로토타입 조립 및 최적화</li>
+        </ul>
+      </article>
+    </div>
+
+    <div class="gallery-grid" style="margin-top:16px;">
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/schematic.jpg" alt="웨어러블 디바이스 제작을 위한 수기 하드웨어 스키매틱." loading="lazy">
+  <figcaption>하드웨어 설계의 기준이 된 수기 스키매틱.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/prototype.jpg" alt="라즈베리 파이, 디스플레이, 카메라가 연결된 브레드보드 프로토타입." loading="lazy">
+  <figcaption>최종 조립 전 브레드보드 프로토타입 단계.</figcaption>
+</figure>
+    </div>
+
+    <div class="callout reveal">
+      <p>하드웨어 작업과 AI 작업은 매우 밀접하게 연결되어 있었습니다. 기기 크기, 캡처 품질, 전력 소모, 디스플레이의 제약 조건들은 계속해서 모델 및 파이프라인 설계에 피드백을 주었습니다.</p>
+    </div>
+  </div>
+</section>
+
+<section id="results" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">05 · Results</span>
+      <h2>결과 및 성과</h2>
+      <p>프로젝트는 목표 정확도를 달성했지만, 초기 목표였던 지연 시간(Latency)은 충족하지 못했습니다. 이러한 차이는 프로젝트 후반부의 주요 타협점(Trade-offs)을 결정하는 기준이 되었습니다.</p>
+    </div>
+
+    <div class="data-table-wrap reveal">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>초기 목표</th>
+            <th>관측 결과</th>
+            <th>평가</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sign-to-Text 정확도</td>
+            <td>80% 이상</td>
+            <td>86%</td>
+            <td>목표 달성</td>
+          </tr>
+          <tr>
+            <td>Speech-to-Sign 정확도</td>
+            <td>80% 이상</td>
+            <td>83%</td>
+            <td>목표 달성</td>
+          </tr>
+          <tr>
+            <td>Sign-to-Text 지연 시간</td>
+            <td>1초 이하</td>
+            <td>서버 측 처리 약 2580ms</td>
+            <td>목표 미달성</td>
+          </tr>
+          <tr>
+            <td>Speech-to-Sign 지연 시간</td>
+            <td>1초 이하</td>
+            <td>약 3212ms</td>
+            <td>목표 미달성</td>
+          </tr>
+          <tr>
+            <td>어휘 집합(Vocabulary) 규모</td>
+            <td>실용적 데모가 가능한 수준</td>
+            <td>2,000개 단어 인식 환경 적용</td>
+            <td>목표 달성</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="result-grid" style="margin-top:16px;">
+      <article class="result-card reveal">
+        <h3>수치 분석</h3>
+        <p>AI 경로는 개념을 증명하고 데모를 시연하기에 충분히 유용했습니다. 하지만 영상 캡처 품질, 서버 왕복 시간(Round-trip), 생성 시간 등 엔드투엔드(End-to-end) 관점에서의 지연이 발생하여 완벽한 실시간(Real-time) 사용에는 미치지 못했습니다.</p>
+      </article>
+      <article class="result-card reveal">
+        <h3>주요 실패 요인(Failure modes)</h3>
+        <p>라이브 환경에서는 프레임 이탈, 빛 반사, 수어 동작의 일관성 부족 등으로 인해 캡처 품질이 떨어졌습니다. 오디오 역시 주변 소음에 취약했습니다. 파이프라인 자체는 안정적이었지만, 전송 및 추론 연산 비용이 여전히 전체 성능의 발목을 잡았습니다.</p>
+      </article>
+      <article class="result-card reveal">
+        <h3>프로젝트의 의의</h3>
+        <p>여러 한계점에도 불구하고, 이 프로젝트는 소형 웨어러블 기기가 AI 커뮤니케이션 시스템의 프론트엔드 역할을 훌륭히 수행할 수 있음을 증명했습니다. 단순한 모델 데모가 아닌, 실제 작동하는 '디바이스-서버 루프'를 성공적으로 구현해 냈습니다.</p>
+      </article>
+      <article class="result-card reveal">
+        <h3>타협점을 투명하게 명시한 이유</h3>
+        <p>이 페이지를 완벽한 성공 스토리로 포장하기보다는, 시스템이 마주한 실제 제약 조건들을 있는 그대로 보여주고 싶었습니다. 이 프로젝트의 진정한 가치는 단순히 최적의 수치를 뽑아낸 것이 아니라, 복잡한 시스템의 경계에서 발생한 문제들을 해결해 나간 과정에 있기 때문입니다.</p>
+      </article>
+    </div>
+
+    <div class="metrics-grid" style="margin-top:16px;">
+      <figure class="figure-frame reveal" data-lightbox>
+  <img src="../assets/img/latency-device.png" alt="웨어러블 측 업로드 및 수신 지연 시간에 대한 터미널 로그 화면." loading="lazy">
+  <figcaption>웨어러블 디바이스 측 지연 시간 측정 스냅샷.</figcaption>
+</figure>
+      <figure class="figure-frame reveal" data-lightbox>
+  <img src="../assets/img/latency-server.png" alt="서버 측 Sign-to-Text 처리 소요 시간 측정 로그." loading="lazy">
+  <figcaption>서버 측 처리 시간 측정 스냅샷.</figcaption>
+</figure>
+    </div>
+  </div>
+</section>
+
+<section id="gallery" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">06 · Gallery</span>
+      <h2>빌드 및 테스트 기록</h2>
+      <p>단순한 모델 구조도를 넘어, 실제 물리적 시스템으로서의 프로젝트를 보여주는 자료들입니다. (모든 이미지는 클릭 시 원본 크기로 볼 수 있습니다.)</p>
+    </div>
+
+    <div class="gallery-grid">
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/final-collage.jpg" alt="다양한 각도에서 촬영된 최종 웨어러블 프로토타입의 콜라주 이미지." loading="lazy">
+  <figcaption>다양한 각도에서 촬영한 최종 프로토타입.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/final-side.jpg" alt="EyEar 웨어러블 프로토타입의 측면 모습." loading="lazy">
+  <figcaption>최종 프로토타입 측면 뷰.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/hardware-overview.png" alt="EyEar 하드웨어 모듈 구성을 보여주는 개요도." loading="lazy">
+  <figcaption>하드웨어 모듈 구성도.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/repo.png" alt="임베디드 코드 및 버전 관리가 기록된 GitHub 저장소 캡처 화면." loading="lazy">
+  <figcaption>코드 저장소 및 버전 관리 스냅샷.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/animation-output.png" alt="Speech-to-Sign 파이프라인을 통해 출력된 골격 애니메이션 결과." loading="lazy">
+  <figcaption>수어 생성 파이프라인의 애니메이션 출력 결과.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/architecture.png" alt="보고서에 포함된 상세 시스템 블록 다이어그램." loading="lazy">
+  <figcaption>상세 시스템 블록 다이어그램.</figcaption>
+</figure>
+    </div>
+  </div>
+</section>
+
+<section id="notes" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">07 · Notes</span>
+      <h2>향후 과제 및 회고</h2>
+      <p>이 프로젝트를 이어간다면, 가장 우선시해야 할 목표는 실제 환경(In-the-wild)에서도 AI 시스템이 안정적으로 동작하게 만드는 것입니다.</p>
+    </div>
+
+    <div class="notes-grid">
+      <article class="note-card reveal">
+        <h3>캡처 품질 향상</h3>
+        <p>더 나은 성능의 카메라와 정밀한 캘리브레이션을 도입한다면, 모델의 성능 부족으로 오인되었던 인식 오류의 상당 부분을 줄일 수 있습니다.</p>
+      </article>
+      <article class="note-card reveal">
+        <h3>오디오 프론트엔드 강화</h3>
+        <p>생성된 수어가 실제 환경에서도 신뢰성을 갖추려면, 음성 경로에서 노이즈 처리와 문장 경계(Sentence-boundary) 인식을 더 정교하게 다듬어야 합니다.</p>
+      </article>
+      <article class="note-card reveal">
+        <h3>지연 시간(Latency) 최소화를 위한 구조 재설계</h3>
+        <p>전처리 과정을 최대한 디바이스 단으로 끌어내려 데이터 전송 비용을 줄이고, 태스크의 핵심 구조를 해치지 않는 선에서 추론 경로를 단순화할 계획입니다.</p>
+      </article>
+      <article class="note-card reveal">
+        <h3>자연어 처리 레이어(Language layer) 추가</h3>
+        <p>핵심적인 캡처 및 추론 경로가 안정화된 이후에, 더 자연스러운 문장 출력을 위한 상위 언어 계층을 추가하는 것이 바람직합니다. 로우레벨(Low-level) 파이프라인이 완벽하지 않은 상태에서, 그럴듯한 데모를 위해 언어 모델로 오류를 덮는 방식은 지양할 것입니다.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-shell">
+      <span>박건우 · EyEar 기술 요약서</span><a href="../" lang="en" hreflang="en">English Page</a>
+    </div>
+  </footer>
+
+  <div class="lightbox" aria-hidden="true">
+    <button class="lightbox-close" type="button" aria-label="이미지 닫기">×</button>
+    <div class="lightbox-inner">
+      <img alt="">
+      <div class="lightbox-caption"></div>
+    </div>
+  </div>
+</body>
+</html>
