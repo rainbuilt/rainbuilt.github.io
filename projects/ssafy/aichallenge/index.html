@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSAFY AI 챌린지 발표 정리</title>
+  <meta name="description" content="repo와 git log를 바탕으로 정리한 SSAFY AI 챌린지 발표용 프론트" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="top-progress" id="top-progress"></div>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#top">
+        <span class="brand-label">SSAFY AI Challenge</span>
+        <span class="brand-title">발표 정리</span>
+      </a>
+      <nav class="main-nav" aria-label="주요 섹션">
+        <a href="#summary" class="nav-link">한눈에 보기</a>
+        <a href="#direct" class="nav-link">직접 구현</a>
+        <a href="#architecture" class="nav-link">구조</a>
+        <a href="#tracks" class="nav-link">실험</a>
+        <a href="#timeline" class="nav-link">작업 로그</a>
+        <a href="#criteria" class="nav-link">발표 정리</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page" id="top">
+    <section class="hero reveal">
+      <div class="hero-copy-block">
+        <p class="page-path">SSAFY AI 챌린지 / repo 기준 정리</p>
+        <h1>
+          모델 이름보다<br />
+          내가 어떻게 굴렸는지가<br />
+          먼저 보이게
+        </h1>
+        <p class="lead">
+          발표용으로 다시 정리한 페이지입니다. repo와 git log를 보면서,
+          어떤 모델을 썼는지보다 <strong>어떤 구조로 바꿨고</strong>,
+          <strong>어디를 직접 손봤는지</strong>가 먼저 읽히게 구성했습니다.
+        </p>
+
+        <div class="hero-meta">
+          <span class="meta-chip">commit 9개</span>
+          <span class="meta-chip">핵심 notebook 3개</span>
+          <span class="meta-chip">운영형 + 학습형 분리</span>
+        </div>
+
+        <div class="hero-actions">
+          <a class="button button-primary" href="#timeline">작업 로그 보기</a>
+          <a class="button button-secondary" href="https://github.com/rainbuilt/2026-ssafy-ai-challenge" target="_blank" rel="noreferrer">repo 열기</a>
+        </div>
+
+        <div class="note-block">
+          <strong>정리한 기준</strong>
+          <p>
+            처음에는 모델을 크게 잡아봤고, 이후에는 제출 운영에 맞게 더 가볍고 안정적인 구조로 줄여 갔습니다.
+            그래서 이 페이지도 모델 스펙보다 구조 변화와 운영 흔적이 먼저 보이게 정리했습니다.
+          </p>
+        </div>
+      </div>
+
+      <aside class="hero-side">
+        <section class="panel stat-panel">
+          <div class="panel-head">
+            <span class="panel-label">현재 repo 기준</span>
+            <span class="panel-meta">빠르게 보기</span>
+          </div>
+          <div class="stat-grid" id="stat-grid"></div>
+        </section>
+
+        <section class="panel file-panel">
+          <div class="panel-head">
+            <span class="panel-label">보고 있는 파일</span>
+            <span class="panel-meta">핵심 notebook</span>
+          </div>
+          <div class="file-list" id="file-list"></div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="section reveal" id="summary">
+      <div class="section-heading">
+        <p class="section-kicker">한눈에 보기</p>
+        <h2>발표에서 먼저 보여줄 네 가지</h2>
+        <p class="section-desc">
+          공지 기준이 “학습한 내용, 적용 기법, 현재까지 적용한 결과” 중심이라서,
+          페이지도 그 흐름대로 바로 읽히게 정리했습니다.
+        </p>
+      </div>
+
+      <div class="summary-grid">
+        <article class="mini-card">
+          <p class="mini-title">문제 형태</p>
+          <p class="mini-body">
+            이미지와 객관식 보기를 함께 읽고 정답을 고르는 멀티모달 MCQA 문제입니다.
+          </p>
+        </article>
+        <article class="mini-card">
+          <p class="mini-title">전체 접근</p>
+          <p class="mini-body">
+            운영형 추론 notebook과 학습형 LoRA notebook을 분리해서, 제출용 흐름과 실험용 흐름을 섞지 않았습니다.
+          </p>
+        </article>
+        <article class="mini-card">
+          <p class="mini-title">내가 직접 손본 부분</p>
+          <p class="mini-body">
+            정답 파싱, item 로그, backup, resume, validation split, adapter 분리 추론 같은 운영부를 직접 정리했습니다.
+          </p>
+        </article>
+        <article class="mini-card">
+          <p class="mini-title">발표 핵심</p>
+          <p class="mini-body">
+            모델 이름을 나열하기보다 27B → 35B → 9B, 그리고 Gemma QLoRA로 확장된 이유를 흐름으로 보여주는 게 좋습니다.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section reveal" id="direct">
+      <div class="section-heading">
+        <p class="section-kicker">직접 구현</p>
+        <h2>코드에서 바로 보이는 내 작업</h2>
+        <p class="section-desc">
+          이 페이지에서 가장 먼저 강조할 부분입니다. 단순히 모델만 바꾼 게 아니라,
+          실제로 돌리고 다시 이어갈 수 있게 만드는 작업이 코드에 남아 있습니다.
+        </p>
+      </div>
+
+      <div class="direct-grid">
+        <article class="point-card">
+          <p class="point-title">출력 형식 통제</p>
+          <p class="point-body">JSON answer, one-letter answer, invalid fallback 처리까지 넣어서 제출 형식을 강하게 고정했습니다.</p>
+        </article>
+        <article class="point-card">
+          <p class="point-title">item 단위 로그</p>
+          <p class="point-body">row마다 JSON 로그를 남기고 progress.csv를 따로 유지해서 중간 상태를 확인할 수 있게 했습니다.</p>
+        </article>
+        <article class="point-card">
+          <p class="point-title">다시 이어서 실행</p>
+          <p class="point-body">backup, checkpoint, resume, merge 유틸을 넣어서 중간에 끊겨도 이어서 돌릴 수 있게 했습니다.</p>
+        </article>
+        <article class="point-card">
+          <p class="point-title">프롬프트 모드 제어</p>
+          <p class="point-body">reasoning / non-thinking 흐름을 분리하고 chat template로 답변 스타일을 제어했습니다.</p>
+        </article>
+        <article class="point-card">
+          <p class="point-title">학습 안정화</p>
+          <p class="point-body">fixed validation split, early stopping, gradient checkpointing 쪽을 계속 손보며 학습 흐름을 정리했습니다.</p>
+        </article>
+        <article class="point-card">
+          <p class="point-title">추론 분기 정리</p>
+          <p class="point-body">adapter가 없어도 base / it 모델 자체로 inference 가능한 경로를 따로 만들었습니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section reveal" id="architecture">
+      <div class="section-heading">
+        <p class="section-kicker">구조</p>
+        <h2>코드는 이런 흐름으로 읽힙니다</h2>
+        <p class="section-desc">
+          notebook이 세 개로 갈라져 있어도 공통 흐름은 같습니다.
+          발표 때는 먼저 아래 파이프라인을 보여주고, 그다음 각 실험 트랙 차이를 붙이면 정리가 깔끔합니다.
+        </p>
+      </div>
+
+      <div class="diagram-card">
+        <div class="pipeline-strip" aria-label="공통 파이프라인 구조">
+          <article class="pipeline-node">
+            <p class="pipeline-title">입력 데이터</p>
+            <p class="pipeline-body">train.csv / test.csv<br />train·test image 폴더</p>
+          </article>
+          <div class="pipeline-arrow" aria-hidden="true"></div>
+          <article class="pipeline-node">
+            <p class="pipeline-title">프롬프트 구성</p>
+            <p class="pipeline-body">choice prompt<br />reasoning / non-thinking 제어</p>
+          </article>
+          <div class="pipeline-arrow" aria-hidden="true"></div>
+          <article class="pipeline-node pipeline-node-strong">
+            <p class="pipeline-title">모델 실행</p>
+            <p class="pipeline-body">운영형 추론 / LoRA 학습<br />Qwen · Gemma 실험 분기</p>
+          </article>
+          <div class="pipeline-arrow" aria-hidden="true"></div>
+          <article class="pipeline-node">
+            <p class="pipeline-title">정답 파싱</p>
+            <p class="pipeline-body">strict answer letter<br />JSON fallback 처리</p>
+          </article>
+          <div class="pipeline-arrow" aria-hidden="true"></div>
+          <article class="pipeline-node">
+            <p class="pipeline-title">로그 / 제출</p>
+            <p class="pipeline-body">item JSON log / progress.csv<br />backup / submission.csv</p>
+          </article>
+        </div>
+
+        <div class="track-map">
+          <article class="track-map-card">
+            <p class="track-map-label">Track A</p>
+            <h3>운영형 추론</h3>
+            <p>Qwen 9B 4bit 기반으로 끝까지 돌리는 제출용 baseline입니다.</p>
+            <ul>
+              <li>정답 파서와 fallback</li>
+              <li>backup / merge / progress 관리</li>
+            </ul>
+          </article>
+          <article class="track-map-card">
+            <p class="track-map-label">Track B</p>
+            <h3>Qwen LoRA</h3>
+            <p>Qwen 27B non-thinking 설정으로 학습형 실험을 분리한 트랙입니다.</p>
+            <ul>
+              <li>assistant answer 중심 loss</li>
+              <li>hybrid LoRA target 설정</li>
+            </ul>
+          </article>
+          <article class="track-map-card">
+            <p class="track-map-label">Track C</p>
+            <h3>Gemma QLoRA</h3>
+            <p>validation / early stopping / adapter inference 쪽을 더 다듬은 트랙입니다.</p>
+            <ul>
+              <li>fixed valid split</li>
+              <li>resume + early stopping</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="diagram-footnote">
+          여기서 강조할 건 모델 크기보다 <strong>운영 흔적</strong>입니다.
+          제출만 만드는 코드가 아니라, 중간 결과를 남기고 다시 이어서 돌릴 수 있는 코드라는 점을 보여주기 좋습니다.
+        </div>
+      </div>
+    </section>
+
+    <section class="section reveal" id="tracks">
+      <div class="section-heading">
+        <p class="section-kicker">실험</p>
+        <h2>repo 안의 세 가지 실험 트랙</h2>
+        <p class="section-desc">
+          같은 문제를 한 방향으로만 밀지 않고, 운영형과 학습형을 나눠서 가져간 흔적이 git log와 notebook 둘 다에 남아 있습니다.
+        </p>
+      </div>
+
+      <div class="tracks-grid">
+        <article class="track-card">
+          <div class="track-top">
+            <p class="track-name">운영형 baseline</p>
+            <div class="badge-row">
+              <span class="badge">Qwen 9B</span>
+              <span class="badge">4bit NF4</span>
+              <span class="badge">A100 40GB</span>
+            </div>
+          </div>
+          <p class="track-summary">
+            먼저 제출 파이프라인부터 만든 notebook입니다. 답안 포맷, 로그, 백업, merge 흐름이 여기서 정리됩니다.
+          </p>
+          <ul class="track-list">
+            <li><strong>핵심</strong> : strict answer parsing / retry / backup / merge</li>
+            <li><strong>기록 방식</strong> : row별 JSON 저장, run_state와 progress.csv 유지</li>
+            <li><strong>변화 흐름</strong> : 27B 8bit → 35B-A3B → 4bit → 9B 축소</li>
+          </ul>
+          <p class="track-memo">운영 관점에서 보면, 이 트랙은 “더 큰 모델”보다 “끝까지 도는 구조”를 먼저 만든 흐름으로 읽힙니다.</p>
+          <pre class="code-note"><code>RUN_NAME = "qwen35_9b_4bit_run01"
+AUTO_DOWNLOAD_BACKUP = True
+MERGE_RUN_NAMES = [RUN_NAME]</code></pre>
+        </article>
+
+        <article class="track-card">
+          <div class="track-top">
+            <p class="track-name">Qwen LoRA 실험</p>
+            <div class="badge-row">
+              <span class="badge">Qwen 27B</span>
+              <span class="badge">non-thinking</span>
+              <span class="badge">LoRA</span>
+            </div>
+          </div>
+          <p class="track-summary">
+            운영형과 별도로, 학습을 통해 답안을 더 안정적으로 뽑아보려는 트랙입니다.
+            non-thinking 제어와 one-letter answer 정책이 이 notebook의 핵심입니다.
+          </p>
+          <ul class="track-list">
+            <li><strong>학습 세팅</strong> : bf16 / grad checkpointing / batch 1 / grad accum 8</li>
+            <li><strong>데이터</strong> : train 90/10 split, assistant 정답 토큰 중심 loss</li>
+            <li><strong>출력 제약</strong> : a, b, c, d 중 한 글자만 반환</li>
+          </ul>
+          <p class="track-memo">이 트랙에서는 운영형 notebook과 별도로 학습형 실험을 분리해 가져간 판단이 가장 분명하게 드러납니다.</p>
+          <pre class="code-note"><code>NON_THINKING = True
+NUM_EPOCHS = 1
+r = 32, alpha = 64, dropout = 0.05</code></pre>
+        </article>
+
+        <article class="track-card">
+          <div class="track-top">
+            <p class="track-name">Gemma 31B-it QLoRA</p>
+            <div class="badge-row">
+              <span class="badge">Gemma 31B-it</span>
+              <span class="badge">QLoRA</span>
+              <span class="badge">early stopping</span>
+            </div>
+          </div>
+          <p class="track-summary">
+            Gemma 계열로 실험을 확장하면서, 학습 안정성과 추론 분기까지 더 정리한 notebook입니다.
+          </p>
+          <ul class="track-list">
+            <li><strong>학습 세팅</strong> : valid 10%, train subset 400, epoch 10, grad accum 4</li>
+            <li><strong>안정성</strong> : eager attention, early stopping, checkpoint resume</li>
+            <li><strong>추론</strong> : adapter가 없어도 base / it 모델로 inference 가능하게 분리</li>
+          </ul>
+          <p class="track-memo">이 트랙은 모델 변경보다 validation, resume, inference 분기를 어떻게 정리했는지가 핵심입니다.</p>
+          <pre class="code-note"><code>EARLY_STOP_PATIENCE = 3
+ENABLE_VISION_TOWER_LORA = False
+ADAPTER_FOR_INFERENCE = None</code></pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="section reveal" id="timeline">
+      <div class="section-heading">
+        <p class="section-kicker">작업 로그</p>
+        <h2>git log로 다시 읽은 코드 변화</h2>
+        <p class="section-desc">
+          커밋 메시지를 그대로 나열하지 않고, 실제로 코드 의미가 바뀐 지점을 기준으로 다시 묶었습니다.
+          발표에서는 이 부분이 실험 과정을 가장 잘 보여줍니다.
+        </p>
+      </div>
+
+      <div class="callout">
+        <strong>참고</strong>
+        <p>
+          Jupyter Notebook은 output이 같이 저장돼서 diff line 수가 실제 코드 변화보다 크게 보일 수 있습니다.
+          그래서 아래에서는 <strong>diff 수치</strong>와 <strong>무엇이 바뀌었는지</strong>를 같이 보게 했습니다.
+        </p>
+      </div>
+
+      <div class="timeline-root" id="timeline-root"></div>
+    </section>
+
+    <section class="section reveal" id="criteria">
+      <div class="section-heading">
+        <p class="section-kicker">발표 정리</p>
+        <h2>공지 기준에 맞춰 말하면</h2>
+        <p class="section-desc">
+          배운 것, 지금 적용한 것, 다음에 해볼 것으로 나누면 이번 작업 흐름이 가장 자연스럽게 정리됩니다.
+        </p>
+      </div>
+
+      <div class="criteria-grid">
+        <article class="criteria-card">
+          <p class="criteria-title">배운 것</p>
+          <ul>
+            <li>멀티모달 chat template와 이미지 + 텍스트 입력 구조</li>
+            <li>reasoning / non-thinking 모드를 나누는 방법</li>
+            <li>LoRA / QLoRA, gradient checkpointing, 양자화 운영 방식</li>
+            <li>학습용 파이프라인과 제출용 파이프라인을 분리하는 기준</li>
+          </ul>
+        </article>
+        <article class="criteria-card">
+          <p class="criteria-title">지금 적용한 것</p>
+          <ul>
+            <li>strict answer parsing과 fallback 처리</li>
+            <li>item 단위 로그 저장, 재시작 가능한 실행 흐름</li>
+            <li>fixed validation split, checkpoint, early stopping</li>
+            <li>adapter 분리 추론, multiple run merge 유틸</li>
+          </ul>
+        </article>
+        <article class="criteria-card criteria-card-highlight">
+          <p class="criteria-title">다음에 해볼 것</p>
+          <ul>
+            <li>reasoning on/off 비교 실험을 더 체계적으로 분리</li>
+            <li>prompt variant A/B 테스트와 파서 강건성 비교</li>
+            <li>run merge를 넘어서 모델 / adapter ensemble 검토</li>
+            <li>validation 설계를 문제 유형 기준으로 더 세분화</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="closing-note">
+        <strong>정리</strong>
+        <p>
+          이번 기록에서 가장 중요하게 남기고 싶었던 건, 모델 교체보다 실험이 남고 다시 돌 수 있는 구조를 같이 만들었다는 점입니다.
+        </p>
+      </div>
+    </section>
+
+    <footer class="footer reveal">
+      <div class="footer-inner">
+        <div>
+          <p class="footer-title">기록 마무리</p>
+          <p class="footer-copy">
+            repo와 git log를 기준으로, 어떤 시도를 했고 왜 구조를 바꿨는지를 한 페이지에 모았습니다.
+          </p>
+        </div>
+        <a class="button button-secondary" href="https://github.com/rainbuilt/2026-ssafy-ai-challenge" target="_blank" rel="noreferrer">repository 바로가기</a>
+      </div>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
