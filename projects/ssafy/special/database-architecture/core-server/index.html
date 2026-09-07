@@ -1,0 +1,956 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Core DB 설계 · v3</title><style>
+:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f7fa;color:#172033;font-family:"Noto Sans CJK KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:15px;line-height:1.8}main{max-width:1160px;margin:28px auto;padding:48px 56px;background:#fff;border:1px solid #dde3ec;border-radius:12px}h1{font-size:32px;line-height:1.35;margin:0 0 20px;letter-spacing:-.04em}h2{font-size:24px;line-height:1.4;margin:40px 0 16px;padding-top:20px;border-top:1px solid #dbe2ea}h3{font-size:18px;margin:30px 0 12px;line-height:1.6}p{margin:12px 0}blockquote{margin:24px 0;padding:14px 20px;border-left:4px solid #2e6ea8;background:#eef4fa}blockquote p{margin:0}a{color:#245d99;text-decoration:underline;text-underline-offset:3px}code{font-family:"DejaVu Sans Mono",Consolas,monospace;font-size:.87em;background:#f2f5f8;padding:1px 4px;border-radius:3px;overflow-wrap:anywhere}pre{overflow:auto;background:#f5f7fa;border:1px solid #dde3ec;border-radius:6px;padding:17px 20px;line-height:1.7;font-size:13px}pre code{padding:0;background:transparent;font-size:inherit;overflow-wrap:normal}table{width:100%;border-collapse:collapse;margin:15px 0 20px;font-size:14px}th,td{padding:10px 13px;vertical-align:top;text-align:left;border-bottom:1px solid #dde3ec;overflow-wrap:anywhere}th{background:#edf3f8;font-weight:700}td:first-child{min-width:150px}tr:nth-child(even) td{background:#fbfcfe}img{display:block;width:100%;height:auto;margin:22px auto;border:1px solid #e1e6ed;border-radius:8px}strong{font-weight:700}@media(max-width:700px){main{margin:0;padding:24px 16px;border:0;border-radius:0}h1{font-size:27px}table{font-size:12px}th,td{padding:8px}td:first-child{min-width:90px}}@media print{body{background:#fff}main{border:none;margin:0;padding:0;max-width:none}h2,h3{break-after:avoid}tr,img{break-inside:avoid}}
+</style></head><body><main><h1>Core DB 설계 · v3</h1>
+<p><strong>PostgreSQL 17 · UTF-8 · 16개 테이블 / 94개 컬럼 / 17개 VIEW</strong><br />
+기준: <code>schema.sql</code>. 기존 v3를 문서화했으며 스키마를 변경하지 않았다. PostgreSQL 실행 검증은 미완료다.</p>
+<blockquote>
+<p>필요한 사실·의미·증거를 DB 안에 둔다. 그다음 중복 저장과 자료형의 폭을 줄인다.</p>
+</blockquote>
+<h2>1. 이 DB의 역할</h2>
+<p>Core는 <strong>사용자·Agent 연결·배송지·구매 진행 상태</strong>를 소유한다. Merchant의 상품·Cart·Checkout·Order, Pay의 승인·결제는 <strong>마지막으로 확인한 내용과 관측시각</strong>을 저장한다. 이 복사본이 Projection이며, 거래 당시 내용을 바꾸지 않는 보존본이 Snapshot이다.</p>
+<p>외부 API·Redis·배포 설정 없이 보존된 거래를 조회하고 해석할 수 있다. 아직 전달받지 못한 상태를 알거나, 외부 시스템 없이 새 결제를 실행한다는 뜻은 아니다. 카드·PIN·생체 원본·PG Token·Payment Credential·서명 개인키는 Core에 보관하지 않는다.</p>
+<p>현재 범위는 Google 단일 로그인, Merchant별 Cart, 단일 Merchant 구매, KRW, Checkout당 결제·주문 각 1건이다. Cart에서 Checkout으로 내용이 전달되지만 두 테이블 사이의 FK는 없다. 준비 오류와 입력 보완은 <code>checkouts</code>, 검증 후 승인 요청부터는 <code>purchase_requests</code>가 담당한다.</p>
+<p><img src="data:image/svg+xml;base64,PCEtLSBHZW5lcmF0ZWQgYnkgZ3JhcGh2aXogdmVyc2lvbiAyLjQyLjQgKDApCiAtLT4KPCEtLSBUaXRsZTogRyBQYWdlczogMSAtLT4KPHN2ZyByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkNvcmUg7KO87JqUIEZLIOq0gOqzhOuPhCIgd2lkdGg9Ijk3M3B0IiBoZWlnaHQ9IjU5M3B0Igogdmlld0JveD0iMC4wMCAwLjAwIDk3My4wMCA1OTMuMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPgo8ZyBpZD0iZ3JhcGgwIiBjbGFzcz0iZ3JhcGgiIHRyYW5zZm9ybT0ic2NhbGUoMSAxKSByb3RhdGUoMCkgdHJhbnNsYXRlKDE4IDU3NSkiPgo8dGl0bGU+RzwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iLTE4LDE4IC0xOCwtNTc1IDk1NSwtNTc1IDk1NSwxOCAtMTgsMTgiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjI2IiB5PSItNTQwLjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2LjAwIj4wMSAmIzE2MDsmIzE2MDvso7zsmpQgRksg6rSA6rOEPC90ZXh0Pgo8dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyMjYiIHk9Ii01MjIuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTYuMDAiPuu2gOuqqCDihpIg7J6Q7IudLiBQcm9maWxlIEZL64qUIOuPhOyLnSAwMiwg7IiY7IugwrfsnpHsl4XCt+ydtOuypO2KuOuKlCDrj4Tsi50gMDQuPC90ZXh0Pgo8dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyMjYiIHk9Ii01MDQuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTYuMDAiPuygkOyEoOydgCDrjbDsnbTthLAg7KCE64us7J2066mwIEZL6rCAIOyVhOuLiOuLpC48L3RleHQ+CjwhLS0gdXNlcnMgLS0+CjxnIGlkPSJub2RlMSIgY2xhc3M9Im5vZGUiPgo8dGl0bGU+dXNlcnM8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSIjZThmMGZhIiBzdHJva2U9InRyYW5zcGFyZW50IiBwb2ludHM9IjMyLjUsLTMzMyAzMi41LC0zNzEgOTcuNSwtMzcxIDk3LjUsLTMzMyAzMi41LC0zMzMiLz4KPHBvbHlnb24gZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNWUxIiBwb2ludHM9IjMyLjUsLTMzMyAzMi41LC0zNzEgOTcuNSwtMzcxIDk3LjUsLTMzMyAzMi41LC0zMzMiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSI0Mi41IiB5PSItMzQ5LjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgZm9udC1zaXplPSIxNi4wMCI+dXNlcnM8L3RleHQ+Cjxwb2x5Z29uIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iMzIuNSwtMjk5IDMyLjUsLTMzMyA5Ny41LC0zMzMgOTcuNSwtMjk5IDMyLjUsLTI5OSIvPgo8cG9seWdvbiBmaWxsPSJub25lIiBzdHJva2U9IiNjYmQ1ZTEiIHBvaW50cz0iMzIuNSwtMjk5IDMyLjUsLTMzMyA5Ny41LC0zMzMgOTcuNSwtMjk5IDMyLjUsLTI5OSIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ic3RhcnQiIHg9IjQ2LjUiIHk9Ii0zMTIuNiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMuMDAiPuyCrOyaqeyekDwvdGV4dD4KPC9nPgo8IS0tIGF1dGhfc2Vzc2lvbnMgLS0+CjxnIGlkPSJub2RlMyIgY2xhc3M9Im5vZGUiPgo8dGl0bGU+YXV0aF9zZXNzaW9uczwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNlOGYwZmEiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iMjcwLjUsLTQ1NyAyNzAuNSwtNDk1IDQwMy41LC00OTUgNDAzLjUsLTQ1NyAyNzAuNSwtNDU3Ii8+Cjxwb2x5Z29uIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2NiZDVlMSIgcG9pbnRzPSIyNzAuNSwtNDU3IDI3MC41LC00OTUgNDAzLjUsLTQ5NSA0MDMuNSwtNDU3IDI3MC41LC00NTciLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSIyODAuNSIgeT0iLTQ3My4yIiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZvbnQtc2l6ZT0iMTYuMDAiPmF1dGhfc2Vzc2lvbnM8L3RleHQ+Cjxwb2x5Z29uIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iMjcwLjUsLTQyMyAyNzAuNSwtNDU3IDQwMy41LC00NTcgNDAzLjUsLTQyMyAyNzAuNSwtNDIzIi8+Cjxwb2x5Z29uIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2NiZDVlMSIgcG9pbnRzPSIyNzAuNSwtNDIzIDI3MC41LC00NTcgNDAzLjUsLTQ1NyA0MDMuNSwtNDIzIDI3MC41LC00MjMiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSIyOTEiIHk9Ii00MzYuNiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMuMDAiPuuhnOq3uOyduMK37Jew6rKwwrfqtoztlZw8L3RleHQ+CjwvZz4KPCEtLSB1c2VycyYjNDU7Jmd0O2F1dGhfc2Vzc2lvbnMgLS0+CjxnIGlkPSJlZGdlMSIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+dXNlcnMmIzQ1OyZndDthdXRoX3Nlc3Npb25zPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuMiIgZD0iTTk3LC0zNDkuNDdDMTM3LjU5LC0zNjguMTEgMjA5LjM2LC00MDEuMDcgMjYzLjYsLTQyNS45OCIvPgo8cG9seWdvbiBmaWxsPSIjNjQ3NDhiIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMS4yIiBwb2ludHM9IjI2Mi45NCwtNDI4LjE4IDI2OS43OSwtNDI4LjgyIDI2NC44MywtNDI0LjA0IDI2Mi45NCwtNDI4LjE4Ii8+Cjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjE5OS41IiB5PSItNDIxLjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjExLjAwIiBmaWxsPSIjNDc1NTY5Ij4wLi5OPC90ZXh0Pgo8L2c+CjwhLS0gYWRkcmVzc2VzIC0tPgo8ZyBpZD0ibm9kZTUiIGNsYXNzPSJub2RlIj4KPHRpdGxlPmFkZHJlc3NlczwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNlOGYwZmEiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iMjg1LjUsLTM1OCAyODUuNSwtMzk2IDM4Ny41LC0zOTYgMzg3LjUsLTM1OCAyODUuNSwtMzU4Ii8+Cjxwb2x5Z29uIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2NiZDVlMSIgcG9pbnRzPSIyODUuNSwtMzU4IDI4NS41LC0zOTYgMzg3LjUsLTM5NiAzODcuNSwtMzU4IDI4NS41LC0zNTgiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSIyOTUuNSIgeT0iLTM3NC4yIiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZvbnQtc2l6ZT0iMTYuMDAiPmFkZHJlc3NlczwvdGV4dD4KPHBvbHlnb24gZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSJ0cmFuc3BhcmVudCIgcG9pbnRzPSIyODUuNSwtMzI0IDI4NS41LC0zNTggMzg3LjUsLTM1OCAzODcuNSwtMzI0IDI4NS41LC0zMjQiLz4KPHBvbHlnb24gZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNWUxIiBwb2ludHM9IjI4NS41LC0zMjQgMjg1LjUsLTM1OCAzODcuNSwtMzU4IDM4Ny41LC0zMjQgMjg1LjUsLTMyNCIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ic3RhcnQiIHg9IjMwNC41IiB5PSItMzM3LjYiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzLjAwIj7soIDsnqUg67Cw7Iah7KeAPC90ZXh0Pgo8L2c+CjwhLS0gdXNlcnMmIzQ1OyZndDthZGRyZXNzZXMgLS0+CjxnIGlkPSJlZGdlNCIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+dXNlcnMmIzQ1OyZndDthZGRyZXNzZXM8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMS4yIiBkPSJNOTcsLTMzNy45MkMxNDEuNTEsLTM0Mi4wNCAyMjMuNTUsLTM0OS42MyAyNzguODEsLTM1NC43NSIvPgo8cG9seWdvbiBmaWxsPSIjNjQ3NDhiIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMS4yIiBwb2ludHM9IjI3OC43MywtMzU3LjAzIDI4NS40MiwtMzU1LjM2IDI3OS4xNSwtMzUyLjUgMjc4LjczLC0zNTcuMDMiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTk5LjUiIHk9Ii0zNTQuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiIGZpbGw9IiM0NzU1NjkiPjAuLk48L3RleHQ+CjwvZz4KPCEtLSBjYXJ0cyAtLT4KPGcgaWQ9Im5vZGU4IiBjbGFzcz0ibm9kZSI+Cjx0aXRsZT5jYXJ0czwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNlN2Y0ZWYiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iMjk5LjUsLTI1OSAyOTkuNSwtMjk3IDM3My41LC0yOTcgMzczLjUsLTI1OSAyOTkuNSwtMjU5Ii8+Cjxwb2x5Z29uIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2NiZDVlMSIgcG9pbnRzPSIyOTkuNSwtMjU5IDI5OS41LC0yOTcgMzczLjUsLTI5NyAzNzMuNSwtMjU5IDI5OS41LC0yNTkiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSIzMTYiIHk9Ii0yNzUuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjE2LjAwIj5jYXJ0czwvdGV4dD4KPHBvbHlnb24gZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSJ0cmFuc3BhcmVudCIgcG9pbnRzPSIyOTkuNSwtMjI1IDI5OS41LC0yNTkgMzczLjUsLTI1OSAzNzMuNSwtMjI1IDI5OS41LC0yMjUiLz4KPHBvbHlnb24gZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNWUxIiBwb2ludHM9IjI5OS41LC0yMjUgMjk5LjUsLTI1OSAzNzMuNSwtMjU5IDM3My41LC0yMjUgMjk5LjUsLTIyNSIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ic3RhcnQiIHg9IjMwOS41IiB5PSItMjM4LjYiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzLjAwIj7tmITsnqwgQ2FydDwvdGV4dD4KPC9nPgo8IS0tIHVzZXJzJiM0NTsmZ3Q7Y2FydHMgLS0+CjxnIGlkPSJlZGdlNSIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+dXNlcnMmIzQ1OyZndDtjYXJ0czwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIGQ9Ik05NywtMzI2LjM3QzE0NS41MiwtMzEzLjA3IDIzOC42MywtMjg3LjU1IDI5My4wNSwtMjcyLjYzIi8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iMjkzLjgyLC0yNzQuNzggMjk5LjQ5LC0yNzAuODcgMjkyLjYyLC0yNzAuMzkgMjkzLjgyLC0yNzQuNzgiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTk5LjUiIHk9Ii0zMTUuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiIGZpbGw9IiM0NzU1NjkiPjAuLk48L3RleHQ+CjwvZz4KPCEtLSBjaGVja291dHMgLS0+CjxnIGlkPSJub2RlOSIgY2xhc3M9Im5vZGUiPgo8dGl0bGU+Y2hlY2tvdXRzPC90aXRsZT4KPHBvbHlnb24gZmlsbD0iI2U3ZjRlZiIgc3Ryb2tlPSJ0cmFuc3BhcmVudCIgcG9pbnRzPSIyODQuNSwtMTMzIDI4NC41LC0xNzEgMzg4LjUsLTE3MSAzODguNSwtMTMzIDI4NC41LC0xMzMiLz4KPHBvbHlnb24gZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNWUxIiBwb2ludHM9IjI4NC41LC0xMzMgMjg0LjUsLTE3MSAzODguNSwtMTcxIDM4OC41LC0xMzMgMjg0LjUsLTEzMyIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ic3RhcnQiIHg9IjI5NS41IiB5PSItMTQ5LjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgZm9udC1zaXplPSIxNi4wMCI+Y2hlY2tvdXRzPC90ZXh0Pgo8cG9seWdvbiBmaWxsPSIjZmZmZmZmIiBzdHJva2U9InRyYW5zcGFyZW50IiBwb2ludHM9IjI4NC41LC05OSAyODQuNSwtMTMzIDM4OC41LC0xMzMgMzg4LjUsLTk5IDI4NC41LC05OSIvPgo8cG9seWdvbiBmaWxsPSJub25lIiBzdHJva2U9IiNjYmQ1ZTEiIHBvaW50cz0iMjg0LjUsLTk5IDI4NC41LC0xMzMgMzg4LjUsLTEzMyAzODguNSwtOTkgMjg0LjUsLTk5Ii8+Cjx0ZXh0IHRleHQtYW5jaG9yPSJzdGFydCIgeD0iMjk0LjUiIHk9Ii0xMTIuNiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMuMDAiPkRyYWZ0ICsgT3JkZXI8L3RleHQ+CjwvZz4KPCEtLSB1c2VycyYjNDU7Jmd0O2NoZWNrb3V0cyAtLT4KPGcgaWQ9ImVkZ2U4IiBjbGFzcz0iZWRnZSI+Cjx0aXRsZT51c2VycyYjNDU7Jmd0O2NoZWNrb3V0czwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIGQ9Ik05Ny4xNiwtMzA4LjlDMTIwLjQzLC0yODkuNzMgMTQ4LC0yNjcgMTQ4LC0yNjcgMTQ4LC0yNjcgMjUxLC0yMjMgMjUxLC0yMjMgMjUxLC0yMjMgMjc0LjE0LC0xOTguOSAyOTYuMiwtMTc1LjkyIi8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iMjk4LjAzLC0xNzcuMzEgMzAwLjg5LC0xNzEuMDUgMjk0Ljc0LC0xNzQuMTYgMjk4LjAzLC0xNzcuMzEiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTk5LjUiIHk9Ii0yNzAuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiIGZpbGw9IiM0NzU1NjkiPjAuLk48L3RleHQ+CjwvZz4KPCEtLSBhZ2VudF9jbGllbnRzIC0tPgo8ZyBpZD0ibm9kZTIiIGNsYXNzPSJub2RlIj4KPHRpdGxlPmFnZW50X2NsaWVudHM8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSIjZThmMGZhIiBzdHJva2U9InRyYW5zcGFyZW50IiBwb2ludHM9IjAuNSwtNDU3IDAuNSwtNDk1IDEyOS41LC00OTUgMTI5LjUsLTQ1NyAwLjUsLTQ1NyIvPgo8cG9seWdvbiBmaWxsPSJub25lIiBzdHJva2U9IiNjYmQ1ZTEiIHBvaW50cz0iMC41LC00NTcgMC41LC00OTUgMTI5LjUsLTQ5NSAxMjkuNSwtNDU3IDAuNSwtNDU3Ii8+Cjx0ZXh0IHRleHQtYW5jaG9yPSJzdGFydCIgeD0iMTAuNSIgeT0iLTQ3My4yIiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZvbnQtc2l6ZT0iMTYuMDAiPmFnZW50X2NsaWVudHM8L3RleHQ+Cjxwb2x5Z29uIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iMC41LC00MjMgMC41LC00NTcgMTI5LjUsLTQ1NyAxMjkuNSwtNDIzIDAuNSwtNDIzIi8+Cjxwb2x5Z29uIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2NiZDVlMSIgcG9pbnRzPSIwLjUsLTQyMyAwLjUsLTQ1NyAxMjkuNSwtNDU3IDEyOS41LC00MjMgMC41LC00MjMiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSIzMi41IiB5PSItNDM2LjYiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzLjAwIj5BZ2VudCDrk7HroZ08L3RleHQ+CjwvZz4KPCEtLSBhZ2VudF9jbGllbnRzJiM0NTsmZ3Q7YXV0aF9zZXNzaW9ucyAtLT4KPGcgaWQ9ImVkZ2UyIiBjbGFzcz0iZWRnZSI+Cjx0aXRsZT5hZ2VudF9jbGllbnRzJiM0NTsmZ3Q7YXV0aF9zZXNzaW9uczwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIGQ9Ik0xMjkuMTQsLTQ1OUMxNjkuNCwtNDU5IDIyMS41MywtNDU5IDI2My4zMiwtNDU5Ii8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iMjYzLjQ0LC00NjEuMjggMjY5Ljk0LC00NTkgMjYzLjQ0LC00NTYuNzMgMjYzLjQ0LC00NjEuMjgiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTk5LjUiIHk9Ii00NjIuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiIGZpbGw9IiM0NzU1NjkiPjAuLk4gwrcg66qo67CU7J287J2AIE5VTEw8L3RleHQ+CjwvZz4KPCEtLSBhdXRoX3Rva2VucyAtLT4KPGcgaWQ9Im5vZGU0IiBjbGFzcz0ibm9kZSI+Cjx0aXRsZT5hdXRoX3Rva2VuczwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNlOGYwZmEiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iNTYxLC00NTcgNTYxLC00OTUgNjgxLC00OTUgNjgxLC00NTcgNTYxLC00NTciLz4KPHBvbHlnb24gZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNWUxIiBwb2ludHM9IjU2MSwtNDU3IDU2MSwtNDk1IDY4MSwtNDk1IDY4MSwtNDU3IDU2MSwtNDU3Ii8+Cjx0ZXh0IHRleHQtYW5jaG9yPSJzdGFydCIgeD0iNTcxIiB5PSItNDczLjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgZm9udC1zaXplPSIxNi4wMCI+YXV0aF90b2tlbnM8L3RleHQ+Cjxwb2x5Z29uIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iNTYxLC00MjMgNTYxLC00NTcgNjgxLC00NTcgNjgxLC00MjMgNTYxLC00MjMiLz4KPHBvbHlnb24gZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNWUxIiBwb2ludHM9IjU2MSwtNDIzIDU2MSwtNDU3IDY4MSwtNDU3IDY4MSwtNDIzIDU2MSwtNDIzIi8+Cjx0ZXh0IHRleHQtYW5jaG9yPSJzdGFydCIgeD0iNTc5LjUiIHk9Ii00MzYuNiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMuMDAiPkNvZGXCt1JlZnJlc2g8L3RleHQ+CjwvZz4KPCEtLSBhdXRoX3Nlc3Npb25zJiM0NTsmZ3Q7YXV0aF90b2tlbnMgLS0+CjxnIGlkPSJlZGdlMyIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+YXV0aF9zZXNzaW9ucyYjNDU7Jmd0O2F1dGhfdG9rZW5zPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuMiIgZD0iTTQwMy4wMiwtNDU5QzQ0OC4zOCwtNDU5IDUwOC41NCwtNDU5IDU1NC4wMSwtNDU5Ii8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iNTU0LjExLC00NjEuMjggNTYwLjYxLC00NTkgNTU0LjExLC00NTYuNzMgNTU0LjExLC00NjEuMjgiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNDY5IiB5PSItNDYyLjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjExLjAwIiBmaWxsPSIjNDc1NTY5Ij4wLi5OPC90ZXh0Pgo8L2c+CjwhLS0gcHVyY2hhc2VfcmVxdWVzdHMgLS0+CjxnIGlkPSJub2RlMTAiIGNsYXNzPSJub2RlIj4KPHRpdGxlPnB1cmNoYXNlX3JlcXVlc3RzPC90aXRsZT4KPHBvbHlnb24gZmlsbD0iI2ZmZjRkZiIgc3Ryb2tlPSJ0cmFuc3BhcmVudCIgcG9pbnRzPSI1MzUsLTMwMiA1MzUsLTM0MCA3MDcsLTM0MCA3MDcsLTMwMiA1MzUsLTMwMiIvPgo8cG9seWdvbiBmaWxsPSJub25lIiBzdHJva2U9IiNjYmQ1ZTEiIHBvaW50cz0iNTM1LC0zMDIgNTM1LC0zNDAgNzA3LC0zNDAgNzA3LC0zMDIgNTM1LC0zMDIiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSI1NDUiIHk9Ii0zMTguMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjE2LjAwIj5wdXJjaGFzZV9yZXF1ZXN0czwvdGV4dD4KPHBvbHlnb24gZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSJ0cmFuc3BhcmVudCIgcG9pbnRzPSI1MzUsLTI2OCA1MzUsLTMwMiA3MDcsLTMwMiA3MDcsLTI2OCA1MzUsLTI2OCIvPgo8cG9seWdvbiBmaWxsPSJub25lIiBzdHJva2U9IiNjYmQ1ZTEiIHBvaW50cz0iNTM1LC0yNjggNTM1LC0zMDIgNzA3LC0zMDIgNzA3LC0yNjggNTM1LC0yNjgiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSI1NjEuNSIgeT0iLTI4MS42IiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMy4wMCI+7Iq57J24IOuMgOyDgSArIOynhO2WiSDsg4Htg5w8L3RleHQ+CjwvZz4KPCEtLSBhdXRoX3Nlc3Npb25zJiM0NTsmZ3Q7cHVyY2hhc2VfcmVxdWVzdHMgLS0+CjxnIGlkPSJlZGdlMTEiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPmF1dGhfc2Vzc2lvbnMmIzQ1OyZndDtwdXJjaGFzZV9yZXF1ZXN0czwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIGQ9Ik00MDMuMDIsLTQyMy4wNUM0NDYuNTQsLTM5OS4xNyA1MDMuNjgsLTM2Ny44MiA1NDguNCwtMzQzLjI5Ii8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iNTQ5Ljc0LC0zNDUuMTQgNTU0LjM1LC0zNDAuMDIgNTQ3LjU1LC0zNDEuMTYgNTQ5Ljc0LC0zNDUuMTQiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNDY5IiB5PSItNDExLjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjExLjAwIiBmaWxsPSIjNDc1NTY5Ij4wLi5OPC90ZXh0Pgo8L2c+CjwhLS0gbWVyY2hhbnRzIC0tPgo8ZyBpZD0ibm9kZTYiIGNsYXNzPSJub2RlIj4KPHRpdGxlPm1lcmNoYW50czwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNlOGYwZmEiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iMTAuNSwtMTMzIDEwLjUsLTE3MSAxMTguNSwtMTcxIDExOC41LC0xMzMgMTAuNSwtMTMzIi8+Cjxwb2x5Z29uIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2NiZDVlMSIgcG9pbnRzPSIxMC41LC0xMzMgMTAuNSwtMTcxIDExOC41LC0xNzEgMTE4LjUsLTEzMyAxMC41LC0xMzMiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSIyMSIgeT0iLTE0OS4yIiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZvbnQtc2l6ZT0iMTYuMDAiPm1lcmNoYW50czwvdGV4dD4KPHBvbHlnb24gZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSJ0cmFuc3BhcmVudCIgcG9pbnRzPSIxMC41LC05OSAxMC41LC0xMzMgMTE4LjUsLTEzMyAxMTguNSwtOTkgMTAuNSwtOTkiLz4KPHBvbHlnb24gZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNWUxIiBwb2ludHM9IjEwLjUsLTk5IDEwLjUsLTEzMyAxMTguNSwtMTMzIDExOC41LC05OSAxMC41LC05OSIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ic3RhcnQiIHg9IjIwLjUiIHk9Ii0xMTIuNiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMuMDAiPk1lcmNoYW50IOuTseuhnTwvdGV4dD4KPC9nPgo8IS0tIGNhdGFsb2dfaXRlbXMgLS0+CjxnIGlkPSJub2RlNyIgY2xhc3M9Im5vZGUiPgo8dGl0bGU+Y2F0YWxvZ19pdGVtczwvdGl0bGU+Cjxwb2x5Z29uIGZpbGw9IiNlN2Y0ZWYiIHN0cm9rZT0idHJhbnNwYXJlbnQiIHBvaW50cz0iMjcwLjUsLTM0IDI3MC41LC03MiA0MDMuNSwtNzIgNDAzLjUsLTM0IDI3MC41LC0zNCIvPgo8cG9seWdvbiBmaWxsPSJub25lIiBzdHJva2U9IiNjYmQ1ZTEiIHBvaW50cz0iMjcwLjUsLTM0IDI3MC41LC03MiA0MDMuNSwtNzIgNDAzLjUsLTM0IDI3MC41LC0zNCIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ic3RhcnQiIHg9IjI4MC41IiB5PSItNTAuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjE2LjAwIj5jYXRhbG9nX2l0ZW1zPC90ZXh0Pgo8cG9seWdvbiBmaWxsPSIjZmZmZmZmIiBzdHJva2U9InRyYW5zcGFyZW50IiBwb2ludHM9IjI3MC41LDAgMjcwLjUsLTM0IDQwMy41LC0zNCA0MDMuNSwwIDI3MC41LDAiLz4KPHBvbHlnb24gZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNWUxIiBwb2ludHM9IjI3MC41LDAgMjcwLjUsLTM0IDQwMy41LC0zNCA0MDMuNSwwIDI3MC41LDAiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSIzMTEiIHk9Ii0xMy42IiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMy4wMCI+6rSA7LihIOyDge2SiDwvdGV4dD4KPC9nPgo8IS0tIG1lcmNoYW50cyYjNDU7Jmd0O2NhdGFsb2dfaXRlbXMgLS0+CjxnIGlkPSJlZGdlNyIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+bWVyY2hhbnRzJiM0NTsmZ3Q7Y2F0YWxvZ19pdGVtczwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIGQ9Ik0xMTguNTIsLTExNS41NkMxNTkuODgsLTEwMC4zOSAyMTcuNzcsLTc5LjE3IDI2My4zNSwtNjIuNDUiLz4KPHBvbHlnb24gZmlsbD0iIzY0NzQ4YiIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuMiIgcG9pbnRzPSIyNjQuMzgsLTY0LjUgMjY5LjcsLTYwLjEzIDI2Mi44MSwtNjAuMjMgMjY0LjM4LC02NC41Ii8+Cjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjE5OS41IiB5PSItMTA2LjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjExLjAwIiBmaWxsPSIjNDc1NTY5Ij4wLi5OPC90ZXh0Pgo8L2c+CjwhLS0gbWVyY2hhbnRzJiM0NTsmZ3Q7Y2FydHMgLS0+CjxnIGlkPSJlZGdlNiIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+bWVyY2hhbnRzJiM0NTsmZ3Q7Y2FydHM8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMS4yIiBkPSJNMTE4LjY2LC0xNTYuMjFDMTczLjQ3LC0xNzguMDcgMjUxLC0yMDkgMjUxLC0yMDkgMjUxLC0yMDkgMjcyLjMsLTIyMi4xIDI5My41MSwtMjM1LjE2Ii8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iMjkyLjQ1LC0yMzcuMTggMjk5LjE3LC0yMzguNjUgMjk0LjgzLC0yMzMuMyAyOTIuNDUsLTIzNy4xOCIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxOTkuNSIgeT0iLTIxMi4yIiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMS4wMCIgZmlsbD0iIzQ3NTU2OSI+MC4uTjwvdGV4dD4KPC9nPgo8IS0tIG1lcmNoYW50cyYjNDU7Jmd0O2NoZWNrb3V0cyAtLT4KPGcgaWQ9ImVkZ2U5IiBjbGFzcz0iZWRnZSI+Cjx0aXRsZT5tZXJjaGFudHMmIzQ1OyZndDtjaGVja291dHM8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMS4yIiBkPSJNMTE4LjUyLC0xMzVDMTY0LjQzLC0xMzUgMjMwLjcsLTEzNSAyNzcuOSwtMTM1Ii8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iMjc3LjkzLC0xMzcuMjggMjg0LjQzLC0xMzUgMjc3LjkzLC0xMzIuNzMgMjc3LjkzLC0xMzcuMjgiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTk5LjUiIHk9Ii0xMzguMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiIGZpbGw9IiM0NzU1NjkiPjAuLk48L3RleHQ+CjwvZz4KPCEtLSBjYXJ0cyYjNDU7Jmd0O2NoZWNrb3V0cyAtLT4KPGcgaWQ9ImVkZ2UxMyIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+Y2FydHMmIzQ1OyZndDtjaGVja291dHM8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMS4yIiBzdHJva2UtZGFzaGFycmF5PSI1LDIiIGQ9Ik0zMzYuNSwtMjI0Ljg5QzMzNi41LC0yMTAuMjYgMzM2LjUsLTE5My4yNCAzMzYuNSwtMTc3Ljk4Ii8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iMzM4Ljc4LC0xNzcuNjEgMzM2LjUsLTE3MS4xMSAzMzQuMjMsLTE3Ny42MSAzMzguNzgsLTE3Ny42MSIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIzMjcuNSIgeT0iLTE5NS4yIiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMS4wMCIgZmlsbD0iIzQ3NTU2OSI+64K07JqpIOyghOuLrDwvdGV4dD4KPC9nPgo8IS0tIGNoZWNrb3V0cyYjNDU7Jmd0O3B1cmNoYXNlX3JlcXVlc3RzIC0tPgo8ZyBpZD0iZWRnZTEwIiBjbGFzcz0iZWRnZSI+Cjx0aXRsZT5jaGVja291dHMmIzQ1OyZndDtwdXJjaGFzZV9yZXF1ZXN0czwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIGQ9Ik0zODguNjYsLTE2NS42QzQzNC45NywtMTkzLjMxIDUwMy40NiwtMjM0LjI4IDU1My45MSwtMjY0LjQ2Ii8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iNTUyLjkxLC0yNjYuNTIgNTU5LjY2LC0yNjcuOSA1NTUuMjUsLTI2Mi42MSA1NTIuOTEsLTI2Ni41MiIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI0NjkiIHk9Ii0yNDMuMiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEuMDAiIGZpbGw9IiM0NzU1NjkiPjAuLk4gwrcg7Zmc7ISx7J2AIOy1nOuMgCAxPC90ZXh0Pgo8L2c+CjwhLS0gcGF5X3JlY2VpcHRzIC0tPgo8ZyBpZD0ibm9kZTExIiBjbGFzcz0ibm9kZSI+Cjx0aXRsZT5wYXlfcmVjZWlwdHM8L3RpdGxlPgo8cG9seWdvbiBmaWxsPSIjZmZmNGRmIiBzdHJva2U9InRyYW5zcGFyZW50IiBwb2ludHM9IjgxMywtMzAyIDgxMywtMzQwIDkzNywtMzQwIDkzNywtMzAyIDgxMywtMzAyIi8+Cjxwb2x5Z29uIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2NiZDVlMSIgcG9pbnRzPSI4MTMsLTMwMiA4MTMsLTM0MCA5MzcsLTM0MCA5MzcsLTMwMiA4MTMsLTMwMiIvPgo8dGV4dCB0ZXh0LWFuY2hvcj0ic3RhcnQiIHg9IjgyNCIgeT0iLTMxOC4yIiBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZvbnQtc2l6ZT0iMTYuMDAiPnBheV9yZWNlaXB0czwvdGV4dD4KPHBvbHlnb24gZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSJ0cmFuc3BhcmVudCIgcG9pbnRzPSI4MTMsLTI2OCA4MTMsLTMwMiA5MzcsLTMwMiA5MzcsLTI2OCA4MTMsLTI2OCIvPgo8cG9seWdvbiBmaWxsPSJub25lIiBzdHJva2U9IiNjYmQ1ZTEiIHBvaW50cz0iODEzLC0yNjggODEzLC0zMDIgOTM3LC0zMDIgOTM3LC0yNjggODEzLC0yNjgiLz4KPHRleHQgdGV4dC1hbmNob3I9InN0YXJ0IiB4PSI4MjMiIHk9Ii0yODEuNiIgZm9udC1mYW1pbHk9IidOb3RvIFNhbnMgQ0pLIEtSJywgJ01hbGd1biBHb3RoaWMnLCAnQXBwbGUgU0QgR290aGljIE5lbycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMuMDAiPuyEnOuqheuQnCDqsrDsoJUg7JiB7IiY7KadPC90ZXh0Pgo8L2c+CjwhLS0gcHVyY2hhc2VfcmVxdWVzdHMmIzQ1OyZndDtwYXlfcmVjZWlwdHMgLS0+CjxnIGlkPSJlZGdlMTIiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPnB1cmNoYXNlX3JlcXVlc3RzJiM0NTsmZ3Q7cGF5X3JlY2VpcHRzPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuMiIgZD0iTTcwNy4zMiwtMzA0QzczOS40NCwtMzA0IDc3NS41MiwtMzA0IDgwNS44NywtMzA0Ii8+Cjxwb2x5Z29uIGZpbGw9IiM2NDc0OGIiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjIiIHBvaW50cz0iODA2LjE2LC0zMDYuMjggODEyLjY2LC0zMDQgODA2LjE2LC0zMDEuNzMgODA2LjE2LC0zMDYuMjgiLz4KPHRleHQgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iNzYwIiB5PSItMzA3LjIiIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjExLjAwIiBmaWxsPSIjNDc1NTY5Ij4wLi4yIMK3IOyiheulmOuLuSAxPC90ZXh0Pgo8L2c+CjwvZz4KPC9zdmc+Cg==" alt="01 주요 FK 관계도" /></p>
+<h2>2. 자료형과 읽는 방법</h2>
+<p>아래 컬럼 사전에서 <code>?</code>는 NULL 허용, <code>PK</code>는 기본키, <code>→</code>는 실제 FK, <code>자동</code>은 Identity다. 복합 PK는 표 아래에 명시한다. DOMAIN은 <strong>기본 자료형에 검증 규칙과 의미를 붙인 이름</strong>이며 별도 테이블이 아니다.</p>
+<table>
+<thead>
+<tr>
+<th>저장 표현</th>
+<th>규칙과 선택 이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>integer</code></td>
+<td>Core ID·FK·Revision. 4바이트. ID는 순환·재사용하지 않는다.</td>
+</tr>
+<tr>
+<td><code>smallint</code></td>
+<td>Merchant/Client 등록번호·코드. 2바이트. 거래 ID에 32,767건 상한을 도입하지 않는다.</td>
+</tr>
+<tr>
+<td><code>boolean</code></td>
+<td>실제 두 값인 정보만 저장한다.</td>
+</tr>
+<tr>
+<td><code>epoch_s</code> → <code>integer</code></td>
+<td>UTC Unix 초, 0 이상. 최대 <strong>2038-01-19 03:14:07 UTC</strong>. 외부 서명 시각은 원문 그대로 보존한다.</td>
+</tr>
+<tr>
+<td><code>hash256</code> → <code>bytea</code></td>
+<td>정확히 32바이트. SHA-256·PKCE S256 전체 값이다.</td>
+</tr>
+<tr>
+<td><code>object_json</code> → <code>json</code></td>
+<td>이름 있는 키의 JSON 객체. 일반 문서는 compact 표현, 서명 문서는 원문을 보존한다.</td>
+</tr>
+<tr>
+<td><code>purchase_state</code>, <code>error_code</code>, <code>operation_code</code>, <code>receipt_kind</code>, <code>scope_mask</code> → <code>smallint</code></td>
+<td>허용값은 DOMAIN/CHECK, 의미는 DB 내부 코드표 VIEW가 보존한다.</td>
+</tr>
+<tr>
+<td><code>text</code>, <code>text[]</code>, <code>bytea</code></td>
+<td>외부 식별자·URI·허용 URI 목록·정확한 바이트. 식별자는 DDL의 <code>COLLATE &quot;C&quot;</code>로 비교하며 잘라 저장하지 않는다.</td>
+</tr>
+</tbody>
+</table>
+<p>고정 코드표는 <code>*_status_codes</code>, <code>scope_codes</code>, <code>error_codes</code>, <code>operation_codes</code>, <code>event_codes</code>, <code>actor_kinds</code>, <code>receipt_kinds</code>다. 코드 의미를 재할당하거나 언어 enum의 나열 순서를 저장값으로 사용하지 않는다. 변경 가능한 Registry는 TABLE에 둔다. 단위·문서 규칙은 DOMAIN/COMMENT와 <code>storage_contracts</code>에 있으므로 코드 저장소가 없어도 해석 가능하다.</p>
+<h2>3. 컬럼 사전</h2>
+<h3><code>users</code> · 사용자</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>Core 사용자 식별자</td>
+</tr>
+<tr>
+<td><code>google_sub</code></td>
+<td><code>text</code></td>
+<td>Google 계정의 정확한 subject</td>
+</tr>
+</tbody>
+</table>
+<p><code>google_sub</code>는 유일하다. 이메일·이름·프로필은 저장하지 않는다.</p>
+<h3><code>profile_snapshots</code> · 공유하는 불변 공개 Profile</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>Profile 버전</td>
+</tr>
+<tr>
+<td><code>profile_url</code></td>
+<td><code>text</code></td>
+<td>실제로 채택한 Profile URI</td>
+</tr>
+<tr>
+<td><code>document</code></td>
+<td><code>bytea</code></td>
+<td>공개키·서비스·Capability·Handler를 포함한 전체 바이트</td>
+</tr>
+</tbody>
+</table>
+<p><code>(profile_url, sha256(document))</code>는 유일하다. 공개키 <code>kid</code>는 문서 안에서 유일해야 한다.</p>
+<h3><code>core_settings</code> · 비민감 통합 설정</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>singleton</code></td>
+<td><code>boolean</code> · PK</td>
+<td>true만 허용한다. 최대 한 행이며 초기 설정 시 채운다.</td>
+</tr>
+<tr>
+<td><code>platform_profile_id</code></td>
+<td><code>integer</code> · → <code>profile_snapshots</code></td>
+<td>현재 Platform Profile</td>
+</tr>
+<tr>
+<td><code>pay_profile_id</code></td>
+<td><code>integer</code> · → <code>profile_snapshots</code></td>
+<td>현재 Pay 공개키 Profile</td>
+</tr>
+<tr>
+<td><code>pay_base_url</code></td>
+<td><code>text</code></td>
+<td>Pay 호출 Base URL</td>
+</tr>
+<tr>
+<td><code>google_client_id</code></td>
+<td><code>text</code></td>
+<td>Google 로그인에서 허용할 audience</td>
+</tr>
+</tbody>
+</table>
+<h3><code>merchants</code> · 판매자 Registry</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>smallint</code> · PK · 자동</td>
+<td>다른 행에서 참조할 작은 등록번호</td>
+</tr>
+<tr>
+<td><code>merchant_id</code></td>
+<td><code>text</code></td>
+<td>외부 Merchant 식별자</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td><code>text</code></td>
+<td>현재 판매자 표시명</td>
+</tr>
+<tr>
+<td><code>allowed_origin</code></td>
+<td><code>text</code></td>
+<td>허용 Origin. 끝 슬래시 없이 저장한다.</td>
+</tr>
+<tr>
+<td><code>enabled</code></td>
+<td><code>boolean</code></td>
+<td>현재 사용 허용 여부. 기본 true.</td>
+</tr>
+<tr>
+<td><code>profile_id</code></td>
+<td><code>integer?</code> · → <code>profile_snapshots</code></td>
+<td>마지막으로 채택한 Profile</td>
+</tr>
+<tr>
+<td><code>profile_checked_at_s</code></td>
+<td><code>epoch_s?</code></td>
+<td>그 Profile을 성공적으로 확인한 시각</td>
+</tr>
+<tr>
+<td><code>profile_valid_until_s</code></td>
+<td><code>epoch_s?</code></td>
+<td>현재 Profile의 캐시 사용 기한</td>
+</tr>
+</tbody>
+</table>
+<p><code>merchant_id</code>, <code>allowed_origin</code>은 각각 유일하다. Profile FK와 두 시각은 모두 NULL이거나 모두 존재한다. Profile URI는 <code>allowed_origin + /.well-known/ucp</code>다.</p>
+<h3><code>agent_clients</code> · Agent OAuth Client</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>smallint</code> · PK · 자동</td>
+<td>Client 등록번호</td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td><code>text</code></td>
+<td>외부 OAuth Client 식별자</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td><code>text</code></td>
+<td>연결 목록에 표시할 이름</td>
+</tr>
+<tr>
+<td><code>redirect_uris</code></td>
+<td><code>text[]</code></td>
+<td>정확히 비교할 허용 URI 목록</td>
+</tr>
+<tr>
+<td><code>enabled</code></td>
+<td><code>boolean</code></td>
+<td>현재 인가·Token 사용 허용 여부. 기본 true.</td>
+</tr>
+</tbody>
+</table>
+<p><code>client_id</code>는 유일하다. URI 배열은 비어 있지 않은 1차원이며 NULL 원소를 금지한다.</p>
+<h3><code>auth_sessions</code> · 앱 세션·Agent 연결·Token family</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>세션 ID이자 Agent connectionId / Refresh family 기준</td>
+</tr>
+<tr>
+<td><code>user_id</code></td>
+<td><code>integer</code> · → <code>users</code></td>
+<td>세션 소유자</td>
+</tr>
+<tr>
+<td><code>client_no</code></td>
+<td><code>smallint?</code> · → <code>agent_clients</code></td>
+<td>Agent Client. NULL이면 자사 모바일 앱.</td>
+</tr>
+<tr>
+<td><code>scopes</code></td>
+<td><code>scope_mask</code></td>
+<td>실제로 부여한 권한 비트마스크</td>
+</tr>
+<tr>
+<td><code>revoked</code></td>
+<td><code>boolean</code></td>
+<td>세션 전체 폐기 여부. 기본 false.</td>
+</tr>
+</tbody>
+</table>
+<p>모바일은 <code>scopes=1984</code>, Agent는 <code>1..63</code>이다. 모바일 Scope도 DB에 저장한다. 권한 변경은 기존 행 수정이 아니라 새 세션 발급이다.</p>
+<h3><code>auth_tokens</code> · 인가 Code와 Refresh Token</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_id</code></td>
+<td><code>integer</code> · → <code>auth_sessions</code></td>
+<td>Token이 속한 세션</td>
+</tr>
+<tr>
+<td><code>expires_at_s</code></td>
+<td><code>epoch_s</code></td>
+<td>이 시각부터 사용 불가</td>
+</tr>
+<tr>
+<td><code>used</code></td>
+<td><code>boolean</code></td>
+<td>이미 교환·회전했는가. 기본 false.</td>
+</tr>
+<tr>
+<td><code>token_hash</code></td>
+<td><code>hash256</code> · PK</td>
+<td>난수 Token 전체의 SHA-256. 원문은 저장하지 않는다.</td>
+</tr>
+<tr>
+<td><code>pkce_challenge</code></td>
+<td><code>hash256?</code></td>
+<td>존재하면 Code, NULL이면 Refresh</td>
+</tr>
+<tr>
+<td><code>redirect_uri</code></td>
+<td><code>text?</code></td>
+<td>인가 때 선택한 URI. Code일 때만 존재한다.</td>
+</tr>
+</tbody>
+</table>
+<p>Challenge와 URI는 함께 존재하거나 함께 NULL이다. 세션당 미사용 Refresh는 최대 1개다. 사용한 행은 재사용 탐지에 필요하므로 즉시 삭제하지 않는다.</p>
+<h3><code>addresses</code> · 배송지 원본</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user_id</code></td>
+<td><code>integer</code> · PK · → <code>users</code></td>
+<td>소유자</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>배송지 선택·수정·삭제 식별자</td>
+</tr>
+<tr>
+<td><code>is_default</code></td>
+<td><code>boolean</code></td>
+<td>기본 배송지 여부. 기본 false.</td>
+</tr>
+<tr>
+<td><code>destination</code></td>
+<td><code>object_json</code></td>
+<td>수취인·연락처·주소의 실제 값</td>
+</tr>
+</tbody>
+</table>
+<p>복합 PK는 <code>(user_id, id)</code>다. 사용자별 기본 배송지는 <strong>최대</strong> 1개이며, 최소 1개를 강제하지 않는다.</p>
+<h3><code>catalog_items</code> · 이미 관측한 상품</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>merchant_no</code></td>
+<td><code>smallint</code> · PK · → <code>merchants</code></td>
+<td>상품 ID의 Merchant 범위</td>
+</tr>
+<tr>
+<td><code>external_id</code></td>
+<td><code>text</code> · PK</td>
+<td>외부 상품 ID</td>
+</tr>
+<tr>
+<td><code>observed_at_s</code></td>
+<td><code>epoch_s</code></td>
+<td>저장 문서의 마지막 완전한 관측시각</td>
+</tr>
+<tr>
+<td><code>document</code></td>
+<td><code>object_json</code></td>
+<td>관측한 이름·옵션·가격·통화·재고 표시</td>
+</tr>
+</tbody>
+</table>
+<p>복합 PK는 <code>(merchant_no, external_id)</code>다. 미수집 상품과 품절은 다르며, 검색 가격은 승인 금액이 아니다.</p>
+<h3><code>carts</code> · 현재 Merchant Cart</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>외부 생성 전에 확보하는 로컬 Cart ID</td>
+</tr>
+<tr>
+<td><code>user_id</code></td>
+<td><code>integer</code> · → <code>users</code></td>
+<td>Cart 소유자</td>
+</tr>
+<tr>
+<td><code>revision</code></td>
+<td><code>integer</code></td>
+<td>확정된 변경 횟수. 기본 0, 음수 금지.</td>
+</tr>
+<tr>
+<td><code>merchant_no</code></td>
+<td><code>smallint</code> · → <code>merchants</code></td>
+<td>해당 Merchant</td>
+</tr>
+<tr>
+<td><code>external_id</code></td>
+<td><code>text?</code></td>
+<td>확인한 외부 Cart ID</td>
+</tr>
+<tr>
+<td><code>observed_at_s</code></td>
+<td><code>epoch_s?</code></td>
+<td>Cart 문서를 확인한 시각</td>
+</tr>
+<tr>
+<td><code>document</code></td>
+<td><code>object_json?</code></td>
+<td>전체 교체 Update와 표시에 필요한 현재 Cart</td>
+</tr>
+</tbody>
+</table>
+<p><code>(user_id, merchant_no)</code>는 유일하다. 알려진 <code>(merchant_no, external_id)</code>도 유일하다. 미해결 변경이 있으면 다음 변경을 앞질러 처리하지 않는다.</p>
+<h3><code>checkouts</code> · 구매 준비 Context와 Order Projection</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>purchaseDraftId이며 로컬 orderProjectionId도 겸한다.</td>
+</tr>
+<tr>
+<td><code>user_id</code></td>
+<td><code>integer</code> · → <code>users</code></td>
+<td>Checkout / Order 소유자</td>
+</tr>
+<tr>
+<td><code>merchant_no</code></td>
+<td><code>smallint</code> · → <code>merchants</code></td>
+<td>해당 Merchant</td>
+</tr>
+<tr>
+<td><code>business_profile_id</code></td>
+<td><code>integer</code> · → <code>profile_snapshots</code></td>
+<td>협상에 실제 사용한 Business Profile</td>
+</tr>
+<tr>
+<td><code>platform_profile_id</code></td>
+<td><code>integer</code> · → <code>profile_snapshots</code></td>
+<td>협상에 실제 사용한 Platform Profile</td>
+</tr>
+<tr>
+<td><code>error_code</code></td>
+<td><code>error_code?</code></td>
+<td>PurchaseRequest 생성 전 준비 오류</td>
+</tr>
+<tr>
+<td><code>external_id</code></td>
+<td><code>text?</code></td>
+<td>확인한 Merchant Checkout ID</td>
+</tr>
+<tr>
+<td><code>external_order_id</code></td>
+<td><code>text?</code></td>
+<td>확인한 Merchant Order ID</td>
+</tr>
+<tr>
+<td><code>checkout_observed_at_s</code></td>
+<td><code>epoch_s?</code></td>
+<td>Checkout 문서를 확인한 시각</td>
+</tr>
+<tr>
+<td><code>order_observed_at_s</code></td>
+<td><code>epoch_s?</code></td>
+<td>Order 상세를 확인한 시각</td>
+</tr>
+<tr>
+<td><code>document</code></td>
+<td><code>object_json?</code></td>
+<td>현재 Checkout 내용</td>
+</tr>
+<tr>
+<td><code>order_document</code></td>
+<td><code>object_json?</code></td>
+<td>현재 주문·배송 내용</td>
+</tr>
+<tr>
+<td><code>negotiation</code></td>
+<td><code>object_json</code></td>
+<td>거래 당시 선택한 불변 협상 결과</td>
+</tr>
+</tbody>
+</table>
+<p>알려진 <code>(merchant_no, external_id)</code>와 <code>(merchant_no, external_order_id)</code>는 각각 유일하다. Checkout당 주문 1건이므로 별도 Order 테이블을 만들지 않는다.</p>
+<h3><code>purchase_requests</code> · 불변 승인 대상과 구매 오케스트레이션</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>한 논리적 구매 요청과 멱등키의 기준</td>
+</tr>
+<tr>
+<td><code>checkout_id</code></td>
+<td><code>integer</code> · → <code>checkouts</code></td>
+<td>소유자·Merchant·외부 Checkout·Order를 찾는 연결</td>
+</tr>
+<tr>
+<td><code>agent_session_id</code></td>
+<td><code>integer</code> · → <code>auth_sessions</code></td>
+<td>승인을 요청한 Agent 연결</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>purchase_state</code></td>
+<td>Core 구매 상태. 기본 1.</td>
+</tr>
+<tr>
+<td><code>error_code</code></td>
+<td><code>error_code?</code></td>
+<td>현재 Core 오류</td>
+</tr>
+<tr>
+<td><code>idempotency_key</code></td>
+<td><code>text</code></td>
+<td>Agent가 제출한 정확한 키</td>
+</tr>
+<tr>
+<td><code>verification_profile_id</code></td>
+<td><code>integer</code> · → <code>profile_snapshots</code></td>
+<td>Merchant 서명 검증에 실제 사용한 Profile</td>
+</tr>
+<tr>
+<td><code>evidence</code></td>
+<td><code>bytea</code></td>
+<td>Merchant 서명을 포함한 fullCheckout의 JCS 바이트</td>
+</tr>
+<tr>
+<td><code>authorization_observed_at_s</code></td>
+<td><code>epoch_s?</code></td>
+<td>승인 Summary를 확인한 시각</td>
+</tr>
+<tr>
+<td><code>payment_observed_at_s</code></td>
+<td><code>epoch_s?</code></td>
+<td>결제 Summary를 확인한 시각</td>
+</tr>
+<tr>
+<td><code>authorization_document</code></td>
+<td><code>object_json?</code></td>
+<td>별개의 Pay 승인 Summary</td>
+</tr>
+<tr>
+<td><code>payment_document</code></td>
+<td><code>object_json?</code></td>
+<td>별개의 Pay 결제 Summary</td>
+</tr>
+</tbody>
+</table>
+<p><code>(agent_session_id, idempotency_key)</code>, 알려진 승인 <code>id</code>, <code>(checkout_id, sha256(evidence))</code>는 각각 유일하다. 상태 <code>1,2,3,4,5,9</code>에 속하는 요청은 Checkout당 최대 1개다.</p>
+<h3><code>pay_receipts</code> · 서명된 결정 영수증</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>purchase_id</code></td>
+<td><code>integer</code> · PK · → <code>purchase_requests</code></td>
+<td>이 Receipt가 증명하는 구매</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td><code>receipt_kind</code> · PK</td>
+<td>1=승인 결정, 2=최종 결제 결과</td>
+</tr>
+<tr>
+<td><code>signing_profile_id</code></td>
+<td><code>integer</code> · → <code>profile_snapshots</code></td>
+<td>Receipt 검증에 사용한 Pay Profile</td>
+</tr>
+<tr>
+<td><code>document</code></td>
+<td><code>object_json</code></td>
+<td>원본 Receipt 본문 전체. URL·Hash만 저장하지 않는다.</td>
+</tr>
+</tbody>
+</table>
+<p>복합 PK는 <code>(purchase_id, kind)</code>다. 종류당 한 번 보존하며, 발급 후 무효화는 Summary·Event에 기록한다. 원래 Receipt를 수정하지 않는다.</p>
+<h3><code>inbox</code> · 수신 중복 방지</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>merchant_no</code></td>
+<td><code>smallint?</code> · → <code>merchants</code></td>
+<td>발신 Merchant. NULL이면 단일 Pay 서비스.</td>
+</tr>
+<tr>
+<td><code>event_id</code></td>
+<td><code>text</code></td>
+<td>발신자가 부여한 이벤트 ID</td>
+</tr>
+<tr>
+<td><code>body_hash</code></td>
+<td><code>hash256</code></td>
+<td>수신 Body 전체의 SHA-256</td>
+</tr>
+</tbody>
+</table>
+<p>PK 대신 <code>UNIQUE NULLS NOT DISTINCT (merchant_no, event_id)</code>를 사용한다. Pay의 NULL도 중복 제거에 포함된다. 실제 업무 내용은 상태·증거 또는 후속 Outbox에 보존한다.</p>
+<h3><code>outbox</code> · 미해결 외부 작업</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>재시도에서도 유지할 작업 ID</td>
+</tr>
+<tr>
+<td><code>aggregate_id</code></td>
+<td><code>integer</code></td>
+<td>대상 Cart 또는 Checkout ID. 직접 FK는 아니다.</td>
+</tr>
+<tr>
+<td><code>run_after_s</code></td>
+<td><code>epoch_s</code></td>
+<td>실행 가능 시각. 기본 현재 Unix 초.</td>
+</tr>
+<tr>
+<td><code>operation</code></td>
+<td><code>operation_code</code></td>
+<td>작업명·HTTP Method·대상 종류를 찾는 코드</td>
+</tr>
+<tr>
+<td><code>request</code></td>
+<td><code>object_json</code></td>
+<td>고정 Body 또는 불변 참조·템플릿</td>
+</tr>
+</tbody>
+</table>
+<p>작업 <code>1..3</code>은 Cart, <code>4..12</code>는 Checkout이다. 순서 제어 키는 <code>(operation IN (1,2,3), aggregate_id, id)</code>다. Cart 42와 Checkout 42를 구분한다.</p>
+<h3><code>events</code> · 감사와 사용자 SSE의 공통 로그</h3>
+<table>
+<thead>
+<tr>
+<th>컬럼</th>
+<th>자료형·키</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>integer</code> · PK · 자동</td>
+<td>감사 식별자 / SSE Last-Event-ID</td>
+</tr>
+<tr>
+<td><code>user_id</code></td>
+<td><code>integer?</code> · → <code>users</code></td>
+<td>사용자 범위. NULL이면 시스템 공통 감사.</td>
+</tr>
+<tr>
+<td><code>actor_id</code></td>
+<td><code>integer?</code></td>
+<td>Actor 종류 1..3의 실제 ID. 서비스 Actor는 NULL.</td>
+</tr>
+<tr>
+<td><code>resource_id</code></td>
+<td><code>integer</code></td>
+<td>이벤트 대상 ID. 대상 테이블은 event_codes가 정한다.</td>
+</tr>
+<tr>
+<td><code>created_at_s</code></td>
+<td><code>epoch_s</code></td>
+<td>기록 시각. 기본 현재 Unix 초.</td>
+</tr>
+<tr>
+<td><code>event_type</code></td>
+<td><code>smallint</code></td>
+<td>이벤트명과 대상 테이블을 찾는 코드</td>
+</tr>
+<tr>
+<td><code>actor_kind</code></td>
+<td><code>smallint</code></td>
+<td>사용자·세션·Merchant·서비스 구분</td>
+</tr>
+<tr>
+<td><code>payload</code></td>
+<td><code>object_json</code></td>
+<td>필요한 before/after·오류·검증·증거 연결</td>
+</tr>
+</tbody>
+</table>
+<p><code>actor_id</code>, <code>resource_id</code>는 직접 FK가 아니다. 주소 대상은 <code>user_id</code>와 함께 식별한다. 같은 사용자 SSE는 <code>(user_id, id)</code> 순서로 읽는다.</p>
+<h2>4. 저장 규칙: 값·시점·증거를 혼동하지 않는다</h2>
+<h3>NULL과 관측시각</h3>
+<p>일반적으로 NULL 문서는 <strong>아직 미관측</strong>, Pay의 <code>UNKNOWN</code>은 <strong>결과 불명이라고 관측함</strong>이다. <code>client_no</code>, <code>inbox.merchant_no</code>, <code>events.user_id/actor_id</code>의 NULL은 컬럼 사전에 적힌 명시적 구분값이다.</p>
+<p>Cart·Checkout·Order·승인·결제 문서는 각각 자신의 관측시각과 함께 존재하거나 함께 NULL이다. 외부 ID만 알려지고 상세 조회가 실패할 수 있다. 이때 ID를 유지하고 문서·관측시각을 NULL로 둔다. 늦게 도착한 이벤트의 도착시각만으로 최신 상태를 덮어쓰지 않는다.</p>
+<h3>현재 문서와 불변 증거</h3>
+<p><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDgwIDU3NCIgd2lkdGg9IjEwODAiIGhlaWdodD0iNTc0IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+Cjx0aXRsZSBpZD0idGl0bGUiPjAyICAg7ZiE7J6sIOyEpOygleqzvCDqsbDrnpgg7Kad6rGw7J2YIOu2hOumrDwvdGl0bGU+PGRlc2MgaWQ9ImRlc2MiPuuqqOuToCDtmZTsgrTtkZzripQg66Gc7LusIFByb2ZpbGUgRkvri6QuIOy1nOyLoCBQcm9maWxl66GcIOqzvOqxsCDshJzrqoXsnYQg64uk7IucIO2VtOyEne2VmOyngCDslYrripTri6QuPC9kZXNjPgo8ZGVmcz48bWFya2VyIGlkPSJhcnJvdyIgdmlld0JveD0iMCAwIDEwIDEwIiByZWZYPSI5IiByZWZZPSI1IiBtYXJrZXJXaWR0aD0iNyIgbWFya2VySGVpZ2h0PSI3IiBvcmllbnQ9ImF1dG8tc3RhcnQtcmV2ZXJzZSI+PHBhdGggZD0iTSAwIDAgTCAxMCA1IEwgMCAxMCB6IiBmaWxsPSIjNjQ3NDhiIi8+PC9tYXJrZXI+PC9kZWZzPgo8ZyBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiI+CjxyZWN0IHdpZHRoPSIxMDgwIiBoZWlnaHQ9IjU3NCIgcng9IjEwIiBmaWxsPSIjZmZmZmZmIi8+Cjx0ZXh0IHg9IjI0IiB5PSIzMiIgZm9udC1zaXplPSIyMiIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij4wMiAgIO2YhOyerCDshKTsoJXqs7wg6rGw656YIOymneqxsOydmCDrtoTrpqw8L3RleHQ+Cjx0ZXh0IHg9IjI0IiB5PSI1OSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7rqqjrk6Ag7ZmU7IK07ZGc64qUIOuhnOy7rCBQcm9maWxlIEZL64ukLiDstZzsi6AgUHJvZmlsZeuhnCDqs7zqsbAg7ISc66qF7J2EIOuLpOyLnCDtlbTshJ3tlZjsp4Ag7JWK64qU64ukLjwvdGV4dD4KPHRleHQgeD0iMjQiIHk9Ijk4IiBmb250LXNpemU9IjE1IiBmaWxsPSIjMWQ0ZWQ4IiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPu2YhOyerCDtj6zsnbjthLAgwrcg6rCx7IugIOqwgOuKpTwvdGV4dD4KPHRleHQgeD0iNzU0IiB5PSI5OCIgZm9udC1zaXplPSIxNSIgZmlsbD0iIzkyNDAwZSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7qsbDrnpgg64u57IucIOyXsOqysCDCtyDrtojrs4A8L3RleHQ+CjxyZWN0IHg9IjI0IiB5PSIxMTYiIHdpZHRoPSIzMDQiIGhlaWdodD0iMTE0IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjY2JkNWUxIi8+CjxwYXRoIGQ9Ik0zMyAxMTYgSDMxOSBRMzI4IDExNiAzMjggMTI1IFYxNTQgSDI0IFYxMjUgUTI0IDExNiAzMyAxMTYgWiIgZmlsbD0iI2U4ZjBmYSIvPgo8dGV4dCB4PSIzOCIgeT0iMTQyIiBmb250LXNpemU9IjE3IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPm1lcmNoYW50czwvdGV4dD4KPHRleHQgeD0iMzgiIHk9IjE3OCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5wcm9maWxlX2lkPC90ZXh0Pgo8dGV4dCB4PSIzOCIgeT0iMjAxIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPu2YhOyerCDssYTtg53tlZwgQnVzaW5lc3MgUHJvZmlsZTwvdGV4dD4KPHJlY3QgeD0iMjQiIHk9IjM0NiIgd2lkdGg9IjMwNCIgaGVpZ2h0PSIxMzYiIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNjYmQ1ZTEiLz4KPHBhdGggZD0iTTMzIDM0NiBIMzE5IFEzMjggMzQ2IDMyOCAzNTUgVjM4NCBIMjQgVjM1NSBRMjQgMzQ2IDMzIDM0NiBaIiBmaWxsPSIjZThmMGZhIi8+Cjx0ZXh0IHg9IjM4IiB5PSIzNzIiIGZvbnQtc2l6ZT0iMTciIGZpbGw9IiMwZjE3MmEiIGZvbnQtd2VpZ2h0PSI3MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+Y29yZV9zZXR0aW5nczwvdGV4dD4KPHRleHQgeD0iMzgiIHk9IjQwOCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5wbGF0Zm9ybV9wcm9maWxlX2lkIMK3IHBheV9wcm9maWxlX2lkPC90ZXh0Pgo8dGV4dCB4PSIzOCIgeT0iNDMxIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPu2YhOyerCBQbGF0Zm9ybSAvIFBheSDqs7XqsJwgUHJvZmlsZTwvdGV4dD4KPHJlY3QgeD0iNDAwIiB5PSIyMjciIHdpZHRoPSIyODQiIGhlaWdodD0iMTYwIiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjY2JkNWUxIi8+CjxwYXRoIGQ9Ik00MDkgMjI3IEg2NzUgUTY4NCAyMjcgNjg0IDIzNiBWMjY1IEg0MDAgVjIzNiBRNDAwIDIyNyA0MDkgMjI3IFoiIGZpbGw9IiNlN2Y0ZWYiLz4KPHRleHQgeD0iNDE0IiB5PSIyNTMiIGZvbnQtc2l6ZT0iMTciIGZpbGw9IiMwZjE3MmEiIGZvbnQtd2VpZ2h0PSI3MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+cHJvZmlsZV9zbmFwc2hvdHM8L3RleHQ+Cjx0ZXh0IHg9IjQxNCIgeT0iMjg5IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPnByb2ZpbGVfdXJsICsg7KCE7LK0IGRvY3VtZW50PC90ZXh0Pgo8dGV4dCB4PSI0MTQiIHk9IjMxMiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5rZXlzW10gwrcg7ISc67mE7IqkIMK3IENhcGFiaWxpdHk8L3RleHQ+Cjx0ZXh0IHg9IjQxNCIgeT0iMzM1IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuqwmeydgCBVUknCt+uCtOyaqeydgCDtlZwg67KI66eMIOyggOyepTwvdGV4dD4KPHJlY3QgeD0iNzU0IiB5PSIxMTYiIHdpZHRoPSIzMDIiIGhlaWdodD0iMTEzIiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjY2JkNWUxIi8+CjxwYXRoIGQ9Ik03NjMgMTE2IEgxMDQ3IFExMDU2IDExNiAxMDU2IDEyNSBWMTU0IEg3NTQgVjEyNSBRNzU0IDExNiA3NjMgMTE2IFoiIGZpbGw9IiNmZmY0ZGYiLz4KPHRleHQgeD0iNzY4IiB5PSIxNDIiIGZvbnQtc2l6ZT0iMTciIGZpbGw9IiMwZjE3MmEiIGZvbnQtd2VpZ2h0PSI3MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+Y2hlY2tvdXRzPC90ZXh0Pgo8dGV4dCB4PSI3NjgiIHk9IjE3OCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5idXNpbmVzc19wcm9maWxlX2lkPC90ZXh0Pgo8dGV4dCB4PSI3NjgiIHk9IjIwMSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5wbGF0Zm9ybV9wcm9maWxlX2lkPC90ZXh0Pgo8cmVjdCB4PSI3NTQiIHk9IjI2NSIgd2lkdGg9IjMwMiIgaGVpZ2h0PSIxMTMiIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNjYmQ1ZTEiLz4KPHBhdGggZD0iTTc2MyAyNjUgSDEwNDcgUTEwNTYgMjY1IDEwNTYgMjc0IFYzMDMgSDc1NCBWMjc0IFE3NTQgMjY1IDc2MyAyNjUgWiIgZmlsbD0iI2ZmZjRkZiIvPgo8dGV4dCB4PSI3NjgiIHk9IjI5MSIgZm9udC1zaXplPSIxNyIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5wdXJjaGFzZV9yZXF1ZXN0czwvdGV4dD4KPHRleHQgeD0iNzY4IiB5PSIzMjciIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+dmVyaWZpY2F0aW9uX3Byb2ZpbGVfaWQ8L3RleHQ+Cjx0ZXh0IHg9Ijc2OCIgeT0iMzUwIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPmV2aWRlbmNl7J2YIE1lcmNoYW50IOyEnOuqhSDtgqQ8L3RleHQ+CjxyZWN0IHg9Ijc1NCIgeT0iNDE0IiB3aWR0aD0iMzAyIiBoZWlnaHQ9IjExMyIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2NiZDVlMSIvPgo8cGF0aCBkPSJNNzYzIDQxNCBIMTA0NyBRMTA1NiA0MTQgMTA1NiA0MjMgVjQ1MiBINzU0IFY0MjMgUTc1NCA0MTQgNzYzIDQxNCBaIiBmaWxsPSIjZmZmNGRmIi8+Cjx0ZXh0IHg9Ijc2OCIgeT0iNDQwIiBmb250LXNpemU9IjE3IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPnBheV9yZWNlaXB0czwvdGV4dD4KPHRleHQgeD0iNzY4IiB5PSI0NzYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+c2lnbmluZ19wcm9maWxlX2lkPC90ZXh0Pgo8dGV4dCB4PSI3NjgiIHk9IjQ5OSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7sm5Drs7ggUmVjZWlwdOydmCBQYXkg7ISc66qFIO2CpDwvdGV4dD4KPHBhdGggZD0iTTMyOCAxNzMgSDM2MiBWMjYzIEg0MDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CjxwYXRoIGQ9Ik0zMjggNDE0IEgzNjIgVjM0OSBINDAwIiBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMS43IiBtYXJrZXItZW5kPSJ1cmwoI2Fycm93KSIvPgo8cGF0aCBkPSJNNzU0IDE3MyBINzIwIFYyNjMgSDY4NCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPHBhdGggZD0iTTc1NCAzMjEgSDY4NCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPHBhdGggZD0iTTc1NCA0NzAgSDcyMCBWMzY1IEg2ODQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+Cjx0ZXh0IHg9IjI0IiB5PSI1NTAiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+7YKkIOyhsO2ajCA9IOyggOyepe2VnCBQcm9maWxlICsg7ISc66qFIEhlYWRlcuydmCBraWQgIMK3ICBwcm9maWxlX2tleSgp64qUIO2CpCDsobDtmozsnbTrqbAg7ISc66qFIOqygOymnSDtlajsiJjqsIAg7JWE64uI64ukLjwvdGV4dD4KPC9nPjwvc3ZnPg==" alt="02 Profile 공유와 거래 당시 증거" /></p>
+<p>현재 상품·배송지·판매자명으로 과거 거래를 재구성하지 않는다. <code>negotiation</code>은 거래 당시 판매자명과 선택 계약, <code>evidence</code>는 승인 당시 실제 상품·옵션·수량·금액·통화·배송지·만료·Merchant 서명을 보존한다. 협상 때와 검증 때 Profile이 다르면 각각 실제 버전을 참조한다.</p>
+<table>
+<thead>
+<tr>
+<th>문서</th>
+<th>최소 저장 계약</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>destination</code></td>
+<td>실제 수취·배송 정보. 주소 내부 필드 규격은 아직 미확정이다.</td>
+</tr>
+<tr>
+<td>Catalog / Cart / Checkout / Order</td>
+<td>이미 관측한 업무 내용 한 벌. ID만으로 외부 조회에 맡기지 않고 raw/normalized 복사본도 중복 저장하지 않는다. 일반 Projection의 최상위 ID는 별도 컬럼에서 조립한다.</td>
+</tr>
+<tr>
+<td><code>negotiation</code></td>
+<td>필수 키: <code>merchant_display_name</code>, <code>rest_endpoint</code>, <code>ap2_extension</code>, <code>capabilities</code> 객체, <code>payment_handler</code> 객체. 선택한 Handler의 name/id/version·비민감 config를 보존한다.</td>
+</tr>
+<tr>
+<td><code>authorization_document</code></td>
+<td>필수 <code>id</code>, <code>status</code>. 관측한 만료·승인시각·인증방법·필요 행동·마스킹 결제수단도 보존한다.</td>
+</tr>
+<tr>
+<td><code>payment_document</code></td>
+<td>필수 <code>paymentId</code>, <code>status</code>. 관측한 금액·통화·Processor 거래 ID 등도 보존한다. Receipt 본문은 중복하지 않는다.</td>
+</tr>
+<tr>
+<td><code>pay_receipts.document</code></td>
+<td>실제 받은 서명된 결정 원문. 승인 종류는 APPROVED/REJECTED/EXPIRED/INVALIDATED, 결제 종류는 SUCCESS/FAILED다. 미수신 Receipt는 생성하지 않는다.</td>
+</tr>
+<tr>
+<td><code>outbox.request</code></td>
+<td>같은 작업을 재실행할 고정 입력. 수정 가능한 주소 ID만 저장한 뒤 현재 값으로 재구성하지 않는다. Complete의 비밀 Credential은 실행 직전에 동일 Pay Artifact로 취득한다.</td>
+</tr>
+<tr>
+<td><code>events.payload</code></td>
+<td>필요한 변경 사실·검증 메타데이터. 이미 컬럼에 있는 Actor·대상·시각, 주소·Token·Artifact 원문은 반복하지 않는다.</td>
+</tr>
+</tbody>
+</table>
+<p>검색 요약으로 상품 상세를 조용히 덮어쓰거나, 과거 상세의 모든 필드를 방금 재확인한 것처럼 표시하지 않는다. 실제 문서 규격·크기·깊이 검증은 서비스의 수집 계약이다. <code>object_json</code>만으로 전체 JSON Schema가 검증되지는 않는다.</p>
+<h3>서명 검증에 쓰는 바이트</h3>
+<pre><code class="language-text">evidence = JCS(fullCheckout)의 UTF-8 바이트
+checkout_digest = base64url(SHA-256(evidence)), padding 없음
+Merchant 서명 대상 = JCS(fullCheckout에서 negotiation.ap2_extension 전체 제외)
+공개키 = verification_profile_id의 keys[] 중 서명 Header의 kid와 일치하는 JWK
+</code></pre>
+<p>Profile의 전체 바이트는 <code>utf8_json()</code>으로 읽고, 공개키는 <code>profile_key()</code>로 찾는다. 이 함수들은 <strong>복호화나 서명 검증을 수행하지 않는다.</strong> 실제 JCS·ES256·만료·금액·소유권 검증을 통과한 입력만 저장해야 한다.</p>
+<p>Receipt는 v3가 새로 제안한 Pay 계약이다. <code>signature</code>는 ES256 Detached JWS, protected header는 <code>alg=ES256</code>과 <code>kid</code>, 서명 대상은 <code>signature</code>를 제외한 Receipt 객체의 JCS다. 기존 다른 형식의 Receipt를 이 형식으로 바꿔 원래 서명이 유지된다고 취급하지 않는다.</p>
+<h2>5. 쓰기 규칙: DB가 막는 것과 서비스가 해야 하는 것</h2>
+<h3>DB 제약의 범위</h3>
+<table>
+<thead>
+<tr>
+<th>DB가 강제하는 조건</th>
+<th>서비스가 추가로 검증·실행할 조건</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FK·허용 코드·NULL 짝·유일성</td>
+<td>요청자 권한, 현재 Client/Merchant 허용 여부, Scope, URL/DNS/SSRF</td>
+</tr>
+<tr>
+<td>구매 INSERT에서 활성 Agent·동일 사용자·Merchant/Profile·Evidence ID/상태/KRW·키 종류 연결</td>
+<td>실제 서명·JCS·만료·총액·Capability 검증과 구매 상태 전이</td>
+</tr>
+<tr>
+<td>Receipt의 로컬 Profile·구매 연결. 결제 Receipt는 Payment ID·Merchant·Checkout·금액/KRW·최종 상태 일치</td>
+<td>실제 Receipt 서명, 신뢰된 수집 경로, 승인 결정의 의미적 일치</td>
+</tr>
+<tr>
+<td>Profile·Receipt·Event의 일반 UPDATE/DELETE 금지. 구매의 ID/연결/키/Evidence 불변</td>
+<td>보존 종료 후 승인된 정리와 다형 참조의 대상 유효성</td>
+</tr>
+<tr>
+<td>세션 ID/소유자/Client/Scope, Checkout 연결/협상·알려진 외부 ID, 알려진 Pay ID, Outbox 입력 불변</td>
+<td>Token 소비·회전/폐기의 조건부 갱신, 동시 실행 잠금, 이벤트 순서 처리</td>
+</tr>
+</tbody>
+</table>
+<p><code>CHECK</code>가 있는 것과 상태 머신이 구현된 것은 다르다. 런타임 계정에는 DDL·스키마 소유권·불변성 우회 권한을 주지 않는다. VIEW의 <code>security_invoker</code> 역시 사용자별 접근 제어를 대신하지 않는다.</p>
+<h3>구매 상태와 멱등성</h3>
+<p><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTIwIDYwNSIgd2lkdGg9IjExMjAiIGhlaWdodD0iNjA1IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+Cjx0aXRsZSBpZD0idGl0bGUiPjAzICAg6rWs66ekIOyDge2DnOyZgCDsnqzsi6Ttlokg6riI7KeAIOq1rOqwhDwvdGl0bGU+PGRlc2MgaWQ9ImRlc2MiPuyIq+yekOuKlCBwdXJjaGFzZV9zdGF0dXNfY29kZXPsnZgg6rCS7J2064ukLiDsoITsnbTripQg7ISc67mE7IqkIOq3nOy5meydtOupsCBEREzsnZgg7J6Q64+ZIOyLpO2WieydtCDslYTri4jri6QuPC9kZXNjPgo8ZGVmcz48bWFya2VyIGlkPSJhcnJvdyIgdmlld0JveD0iMCAwIDEwIDEwIiByZWZYPSI5IiByZWZZPSI1IiBtYXJrZXJXaWR0aD0iNyIgbWFya2VySGVpZ2h0PSI3IiBvcmllbnQ9ImF1dG8tc3RhcnQtcmV2ZXJzZSI+PHBhdGggZD0iTSAwIDAgTCAxMCA1IEwgMCAxMCB6IiBmaWxsPSIjNjQ3NDhiIi8+PC9tYXJrZXI+PC9kZWZzPgo8ZyBmb250LWZhbWlseT0iJ05vdG8gU2FucyBDSksgS1InLCAnTWFsZ3VuIEdvdGhpYycsICdBcHBsZSBTRCBHb3RoaWMgTmVvJywgc2Fucy1zZXJpZiI+CjxyZWN0IHdpZHRoPSIxMTIwIiBoZWlnaHQ9IjYwNSIgcng9IjEwIiBmaWxsPSIjZmZmZmZmIi8+Cjx0ZXh0IHg9IjI0IiB5PSIzMiIgZm9udC1zaXplPSIyMiIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij4wMyAgIOq1rOunpCDsg4Htg5zsmYAg7J6s7Iuk7ZaJIOq4iOyngCDqtazqsIQ8L3RleHQ+Cjx0ZXh0IHg9IjI0IiB5PSI1OSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7siKvsnpDripQgcHVyY2hhc2Vfc3RhdHVzX2NvZGVz7J2YIOqwkuydtOuLpC4g7KCE7J2064qUIOyEnOu5hOyKpCDqt5zsuZnsnbTrqbAgRERM7J2YIOyekOuPmSDsi6TtlonsnbQg7JWE64uI64ukLjwvdGV4dD4KPHJlY3QgeD0iMjQiIHk9IjkyIiB3aWR0aD0iMjM4IiBoZWlnaHQ9IjEwOCIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2NiZDVlMSIvPgo8cGF0aCBkPSJNMzMgOTIgSDI1MyBRMjYyIDkyIDI2MiAxMDEgVjEzMCBIMjQgVjEwMSBRMjQgOTIgMzMgOTIgWiIgZmlsbD0iI2U4ZjBmYSIvPgo8dGV4dCB4PSIzOCIgeT0iMTE4IiBmb250LXNpemU9IjE1IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPjEgIEFXQUlUSU5HX0FQUFJPVkFMPC90ZXh0Pgo8dGV4dCB4PSIzOCIgeT0iMTU0IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuqygOymneuQnCBDaGVja291dDwvdGV4dD4KPHRleHQgeD0iMzgiIHk9IjE3NyIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7slbEg7Iq57J24IOuMgOq4sDwvdGV4dD4KPHJlY3QgeD0iMzAyIiB5PSI5MiIgd2lkdGg9IjIzOCIgaGVpZ2h0PSIxMDgiIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNjYmQ1ZTEiLz4KPHBhdGggZD0iTTMxMSA5MiBINTMxIFE1NDAgOTIgNTQwIDEwMSBWMTMwIEgzMDIgVjEwMSBRMzAyIDkyIDMxMSA5MiBaIiBmaWxsPSIjZThmMGZhIi8+Cjx0ZXh0IHg9IjMxNiIgeT0iMTE4IiBmb250LXNpemU9IjE1IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPjIgIEFVVEhPUklaRUQ8L3RleHQ+Cjx0ZXh0IHg9IjMxNiIgeT0iMTU0IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuyCrOyaqeyekCDsirnsnbg8L3RleHQ+Cjx0ZXh0IHg9IjMxNiIgeT0iMTc3IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPkFydGlmYWN0IOykgOu5hCDsmYTro4w8L3RleHQ+CjxyZWN0IHg9IjU4MCIgeT0iOTIiIHdpZHRoPSIyMzgiIGhlaWdodD0iMTA4IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjY2JkNWUxIi8+CjxwYXRoIGQ9Ik01ODkgOTIgSDgwOSBRODE4IDkyIDgxOCAxMDEgVjEzMCBINTgwIFYxMDEgUTU4MCA5MiA1ODkgOTIgWiIgZmlsbD0iI2U4ZjBmYSIvPgo8dGV4dCB4PSI1OTQiIHk9IjExOCIgZm9udC1zaXplPSIxNSIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij4zICBTVUJNSVRUSU5HPC90ZXh0Pgo8dGV4dCB4PSI1OTQiIHk9IjE1NCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5Db21wbGV0ZSDsoIQ8L3RleHQ+Cjx0ZXh0IHg9IjU5NCIgeT0iMTc3IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuyDge2DnOulvCDrqLzsoIAgQ09NTUlUPC90ZXh0Pgo8cmVjdCB4PSI4NTgiIHk9IjkyIiB3aWR0aD0iMjM4IiBoZWlnaHQ9IjEwOCIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2NiZDVlMSIvPgo8cGF0aCBkPSJNODY3IDkyIEgxMDg3IFExMDk2IDkyIDEwOTYgMTAxIFYxMzAgSDg1OCBWMTAxIFE4NTggOTIgODY3IDkyIFoiIGZpbGw9IiNlOGYwZmEiLz4KPHRleHQgeD0iODcyIiB5PSIxMTgiIGZvbnQtc2l6ZT0iMTUiIGZpbGw9IiMwZjE3MmEiIGZvbnQtd2VpZ2h0PSI3MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+NSAgQ09NUExFVEVEPC90ZXh0Pgo8dGV4dCB4PSI4NzIiIHk9IjE1NCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5NZXJjaGFudCBjb21wbGV0ZWQ8L3RleHQ+Cjx0ZXh0IHg9Ijg3MiIgeT0iMTc3IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPisgT3JkZXIg7IOd7ISxIO2ZleyduDwvdGV4dD4KPHBhdGggZD0iTTI2MiAxNDQgSDMwMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPHRleHQgeD0iMjgyLjAiIHk9IjEyOSIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+7Iq57J24PC90ZXh0Pgo8cGF0aCBkPSJNNTQwIDE0NCBINTgwIiBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMS43IiBtYXJrZXItZW5kPSJ1cmwoI2Fycm93KSIvPgo8dGV4dCB4PSI1NjAuMCIgeT0iMTI5IiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7soJzstpw8L3RleHQ+CjxwYXRoIGQ9Ik04MTggMTQ0IEg4NTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+Cjx0ZXh0IHg9IjgzOC4wIiB5PSIxMjkiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPu2ZleyglTwvdGV4dD4KPHJlY3QgeD0iMjQiIHk9IjI2NiIgd2lkdGg9IjIzOCIgaGVpZ2h0PSI5MiIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2NiZDVlMSIvPgo8cGF0aCBkPSJNMzMgMjY2IEgyNTMgUTI2MiAyNjYgMjYyIDI3NSBWMzA0IEgyNCBWMjc1IFEyNCAyNjYgMzMgMjY2IFoiIGZpbGw9IiNmMWY1ZjkiLz4KPHRleHQgeD0iMzgiIHk9IjI5MiIgZm9udC1zaXplPSIxNSIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij43ICBSRUpFQ1RFRDwvdGV4dD4KPHRleHQgeD0iMzgiIHk9IjMyOCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7sgqzsmqnsnpAg6rGw67aAPC90ZXh0Pgo8cmVjdCB4PSIzMDIiIHk9IjI2NiIgd2lkdGg9IjIzOCIgaGVpZ2h0PSI5MiIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2NiZDVlMSIvPgo8cGF0aCBkPSJNMzExIDI2NiBINTMxIFE1NDAgMjY2IDU0MCAyNzUgVjMwNCBIMzAyIFYyNzUgUTMwMiAyNjYgMzExIDI2NiBaIiBmaWxsPSIjZjFmNWY5Ii8+Cjx0ZXh0IHg9IjMxNiIgeT0iMjkyIiBmb250LXNpemU9IjE1IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPjggIEVYUElSRUQ8L3RleHQ+Cjx0ZXh0IHg9IjMxNiIgeT0iMzI4IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuyKueyduCDrmJDripQgQ2hlY2tvdXQg66eM66OMPC90ZXh0Pgo8cmVjdCB4PSI1ODAiIHk9IjI2NiIgd2lkdGg9IjIzOCIgaGVpZ2h0PSIxMTIiIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNjYmQ1ZTEiLz4KPHBhdGggZD0iTTU4OSAyNjYgSDgwOSBRODE4IDI2NiA4MTggMjc1IFYzMDQgSDU4MCBWMjc1IFE1ODAgMjY2IDU4OSAyNjYgWiIgZmlsbD0iI2ZmZjRkZiIvPgo8dGV4dCB4PSI1OTQiIHk9IjI5MiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij40ICBDT01QTEVUSU9OX1VOS05PV048L3RleHQ+Cjx0ZXh0IHg9IjU5NCIgeT0iMzI4IiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuyDiCDqtazrp6TCt+yKueyduMK37YKkIOq4iOyngDwvdGV4dD4KPHRleHQgeD0iNTk0IiB5PSIzNTEiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+6riw7KG0IENoZWNrb3V0IC8gT3JkZXIg7KGw7ZqMPC90ZXh0Pgo8cmVjdCB4PSI4NTgiIHk9IjI2NiIgd2lkdGg9IjIzOCIgaGVpZ2h0PSI5MiIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2NiZDVlMSIvPgo8cGF0aCBkPSJNODY3IDI2NiBIMTA4NyBRMTA5NiAyNjYgMTA5NiAyNzUgVjMwNCBIODU4IFYyNzUgUTg1OCAyNjYgODY3IDI2NiBaIiBmaWxsPSIjZjFmNWY5Ii8+Cjx0ZXh0IHg9Ijg3MiIgeT0iMjkyIiBmb250LXNpemU9IjE1IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPjYgIEZBSUxFRDwvdGV4dD4KPHRleHQgeD0iODcyIiB5PSIzMjgiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+7Iuk7Yyo6rCAIO2ZleygleuQnCDqsr3smrDrp4w8L3RleHQ+CjxwYXRoIGQ9Ik0xNDMgMjAwIFYyNjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+Cjx0ZXh0IHg9IjE1MiIgeT0iMjQwIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuqxsOu2gDwvdGV4dD4KPHBhdGggZD0iTTIyNCAyMDAgVjIyOCBINDIxIFYyNjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+Cjx0ZXh0IHg9IjI5NyIgeT0iMjIwIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuunjOujjDwvdGV4dD4KPHBhdGggZD0iTTY5OSAyMDAgVjI2NiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPHRleHQgeD0iNzEwIiB5PSIyNDAiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+7J2R64u1IOycoOyLpDwvdGV4dD4KPHBhdGggZD0iTTc4OCAyMDAgVjIyOCBIOTc3IFYyNjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+Cjx0ZXh0IHg9Ijg4MSIgeT0iMjE4IiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPu2ZleyglSDsi6TtjKg8L3RleHQ+CjxwYXRoIGQ9Ik04MTggMzIzIEg4NTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+Cjx0ZXh0IHg9IjgzOCIgeT0iMzA4IiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7si6TtjKg8L3RleHQ+CjxwYXRoIGQ9Ik03NjAgMjY2IFYyNDkgSDEwOTkgVjE4OCBIMTA5NiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPHRleHQgeD0iOTY1IiB5PSIyNDUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPuyhsO2ajOuhnCDshLHqs7Ug7ZmV7J24PC90ZXh0Pgo8cGF0aCBkPSJNNTgwIDMzMSBINTU5IFYxNzkgSDU4MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgc3Ryb2tlLWRhc2hhcnJheT0iNSA0IiBtYXJrZXItZW5kPSJ1cmwoI2Fycm93KSIvPgo8dGV4dCB4PSI1MzgiIHk9IjQwMiIgZm9udC1zaXplPSIxMyIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7slYjsoIQg7J6s7KCE7Iah66eMOiDrj5nsnbwg7JqU7LKtwrfrj5nsnbwg7YKkIOKGkiAzPC90ZXh0Pgo8cmVjdCB4PSIyNCIgeT0iNDM0IiB3aWR0aD0iMTA3MiIgaGVpZ2h0PSIxMjYiIHJ4PSI5IiBmaWxsPSIjZjhmYWZjIiBzdHJva2U9IiNjYmQ1ZTEiLz4KPHRleHQgeD0iNDAiIHk9IjQ2MSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzkyNDAwZSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7soJzstpwg7KCEIDHCtzLsl5DshJwgQ2hlY2tvdXQg64K07JqpIOuzgOqyvTwvdGV4dD4KPHJlY3QgeD0iMzgzIiB5PSI0NTEiIHdpZHRoPSIyNjUiIGhlaWdodD0iODciIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNjYmQ1ZTEiLz4KPHBhdGggZD0iTTM5MiA0NTEgSDYzOSBRNjQ4IDQ1MSA2NDggNDYwIFY0ODkgSDM4MyBWNDYwIFEzODMgNDUxIDM5MiA0NTEgWiIgZmlsbD0iI2ZmZjRkZiIvPgo8dGV4dCB4PSIzOTciIHk9IjQ3NyIgZm9udC1zaXplPSIxNSIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij45ICBJTlZBTElEQVRJTkc8L3RleHQ+Cjx0ZXh0IHg9IjM5NyIgeT0iNTEzIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPlBheSDrrLTtmqjtmZQg7ZmV7J24IOuMgOq4sDwvdGV4dD4KPHJlY3QgeD0iNzc3IiB5PSI0NTEiIHdpZHRoPSIyOTMiIGhlaWdodD0iODciIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNjYmQ1ZTEiLz4KPHBhdGggZD0iTTc4NiA0NTEgSDEwNjEgUTEwNzAgNDUxIDEwNzAgNDYwIFY0ODkgSDc3NyBWNDYwIFE3NzcgNDUxIDc4NiA0NTEgWiIgZmlsbD0iI2YxZjVmOSIvPgo8dGV4dCB4PSI3OTEiIHk9IjQ3NyIgZm9udC1zaXplPSIxNSIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij4xMCAgSU5WQUxJREFURUQ8L3RleHQ+Cjx0ZXh0IHg9Ijc5MSIgeT0iNTEzIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuq4sOyhtCDsirnsnbgg66y07Zqo7ZmUIO2ZleyduCDsmYTro4w8L3RleHQ+CjxwYXRoIGQ9Ik0zMTggNDkzIEgzODMiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CjxwYXRoIGQ9Ik02NDggNDkzIEg3NzciIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY0NzQ4YiIgc3Ryb2tlLXdpZHRoPSIxLjciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+Cjx0ZXh0IHg9IjcxMiIgeT0iNDgwIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5QYXkg7ZmV7J24PC90ZXh0Pgo8dGV4dCB4PSIyNCIgeT0iNTkwIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTI0MDBlIiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPjPCtzTripQg66+46rKw7KCc66GcIOuLqOygle2VtCDrrLTtmqjtmZTCt+yDiCDsirnsnbjtlZjsp4Ag7JWK64qU64ukLiDrqLzsoIAg6riw7KG0IOqxsOuemOydmCDqsrDqs7zrpbwg7ZmV7J247ZWc64ukLjwvdGV4dD4KPC9nPjwvc3ZnPg==" alt="03 구매 상태 전이" /></p>
+<p><strong>승인 APPROVED ≠ 결제 SUCCESS ≠ Checkout completed ≠ Order 확인</strong>이다. 각 값은 독립적으로 읽는다. <code>COMPLETED</code>여도 Receipt가 아직 도착하지 않았을 수 있으므로 거래 완료와 증거 수집 완료를 구분한다.</p>
+<table>
+<thead>
+<tr>
+<th>요청 또는 사건</th>
+<th>처리 규칙</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>같은 Agent 세션·같은 Key·같은 Checkout</td>
+<td>기존 PurchaseRequest를 반환한다. 현재 Checkout으로 Evidence를 다시 만들지 않는다.</td>
+</tr>
+<tr>
+<td>같은 세션·같은 Key·다른 Checkout</td>
+<td><code>IDEMPOTENCY_KEY_CONFLICT</code>. 다른 Key의 활성 중복은 <code>APPROVAL_ALREADY_EXISTS</code>.</td>
+</tr>
+<tr>
+<td>승인 세션 생성 / Complete</td>
+<td>각각 <code>authorization-{purchase_id}</code> / <code>checkout-complete-{purchase_id}</code>. 나머지 작업은 <code>core-outbox-{outbox_id}</code>. 실제 계산은 <code>pending_work</code>에 있다.</td>
+</tr>
+<tr>
+<td>Checkout 변경</td>
+<td>제출 전에는 INVALIDATING을 저장하고 Pay 무효화 확인 후 INVALIDATED로 바꾼다. 대기 중 새 승인은 금지한다.</td>
+</tr>
+<tr>
+<td>Complete 응답 유실 / 재시작에 남은 SUBMITTING</td>
+<td>기존 Checkout·Order 조회로 복구한다. 새 구매·승인·Credential·멱등키로 해결하지 않는다.</td>
+</tr>
+</tbody>
+</table>
+<p>현재 Pay의 동일 Merchant·Checkout·Digest 유일성 때문에 <strong>같은 외부 Checkout·같은 Digest의 새 승인</strong>은 지원되지 않는다. 재승인은 미해결 거래가 없음을 확인하고 새 Merchant Checkout으로 진행한다. 로컬 Draft ID만 바꾸는 것은 해결이 아니다.</p>
+<h3>트랜잭션·순서·Token</h3>
+<p><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTIwIDU2NiIgd2lkdGg9IjExMjAiIGhlaWdodD0iNTY2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+Cjx0aXRsZSBpZD0idGl0bGUiPjA0ICAg7KCA7J6l6rO8IOyZuOu2gCDtmLjstpzsnZgg6rK96rOEPC90aXRsZT48ZGVzYyBpZD0iZGVzYyI+T3V0Ym94ID0g7JWE7KeBIO2VtOqysO2VmOyngCDrqrvtlZwg7Jm467aAIOyekeyXhS4gSW5ib3ggPSDsg4Htg5wg67CY7JiBIOuYkOuKlCDtm4Tsho0g7J6R7JeF7J20IO2VqOq7mCDsu6TrsIvrkJwg7IiY7IugIOq4sOuhnS48L2Rlc2M+CjxkZWZzPjxtYXJrZXIgaWQ9ImFycm93IiB2aWV3Qm94PSIwIDAgMTAgMTAiIHJlZlg9IjkiIHJlZlk9IjUiIG1hcmtlcldpZHRoPSI3IiBtYXJrZXJIZWlnaHQ9IjciIG9yaWVudD0iYXV0by1zdGFydC1yZXZlcnNlIj48cGF0aCBkPSJNIDAgMCBMIDEwIDUgTCAwIDEwIHoiIGZpbGw9IiM2NDc0OGIiLz48L21hcmtlcj48L2RlZnM+CjxnIGZvbnQtZmFtaWx5PSInTm90byBTYW5zIENKSyBLUicsICdNYWxndW4gR290aGljJywgJ0FwcGxlIFNEIEdvdGhpYyBOZW8nLCBzYW5zLXNlcmlmIj4KPHJlY3Qgd2lkdGg9IjExMjAiIGhlaWdodD0iNTY2IiByeD0iMTAiIGZpbGw9IiNmZmZmZmYiLz4KPHRleHQgeD0iMjQiIHk9IjMyIiBmb250LXNpemU9IjIyIiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPjA0ICAg7KCA7J6l6rO8IOyZuOu2gCDtmLjstpzsnZgg6rK96rOEPC90ZXh0Pgo8dGV4dCB4PSIyNCIgeT0iNTkiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+T3V0Ym94ID0g7JWE7KeBIO2VtOqysO2VmOyngCDrqrvtlZwg7Jm467aAIOyekeyXhS4gSW5ib3ggPSDsg4Htg5wg67CY7JiBIOuYkOuKlCDtm4Tsho0g7J6R7JeF7J20IO2VqOq7mCDsu6TrsIvrkJwg7IiY7IugIOq4sOuhnS48L3RleHQ+Cjx0ZXh0IHg9IjI0IiB5PSI5OCIgZm9udC1zaXplPSIxNSIgZmlsbD0iIzBmMTcyYSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7shqHsi6AgLyDsnqzsi5zrj4Q8L3RleHQ+CjxyZWN0IHg9IjI0IiB5PSIxMTkiIHdpZHRoPSIzMTgiIGhlaWdodD0iMTY4IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjY2JkNWUxIi8+CjxwYXRoIGQ9Ik0zMyAxMTkgSDMzMyBRMzQyIDExOSAzNDIgMTI4IFYxNTcgSDI0IFYxMjggUTI0IDExOSAzMyAxMTkgWiIgZmlsbD0iI2U4ZjBmYSIvPgo8dGV4dCB4PSIzOCIgeT0iMTQ1IiBmb250LXNpemU9IjE3IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPlRYIEEgwrcg7Zi47LacIOydmOuPhOulvCDrs7TsobQ8L3RleHQ+Cjx0ZXh0IHg9IjM4IiB5PSIxODEiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+7IaM7Jyg6raMwrfsg4Htg5zCt1JldmlzaW9uIO2ZleyduDwvdGV4dD4KPHRleHQgeD0iMzgiIHk9IjIwNCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7sg4Htg5wgKyBPdXRib3ggKyBFdmVudDwvdGV4dD4KPHRleHQgeD0iMzgiIHk9IjIyNyIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5DT01NSVQg7ZuE7JeQ66eMIOyZuOu2gCDtmLjstpw8L3RleHQ+CjxyZWN0IHg9IjQwNyIgeT0iMTE5IiB3aWR0aD0iMjgyIiBoZWlnaHQ9IjE2OCIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2NiZDVlMSIvPgo8cGF0aCBkPSJNNDE2IDExOSBINjgwIFE2ODkgMTE5IDY4OSAxMjggVjE1NyBINDA3IFYxMjggUTQwNyAxMTkgNDE2IDExOSBaIiBmaWxsPSIjZmZmNGRmIi8+Cjx0ZXh0IHg9IjQyMSIgeT0iMTQ1IiBmb250LXNpemU9IjE3IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPu2KuOuenOyereyFmCDrsJYgwrcgSFRUUDwvdGV4dD4KPHRleHQgeD0iNDIxIiB5PSIxODEiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+TWVyY2hhbnQgLyBQYXkg7Zi47LacPC90ZXh0Pgo8dGV4dCB4PSI0MjEiIHk9IjIwNCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7qsJnsnYAg7J6R7JeFwrfqsJnsnYAg66mx65Ox7YKkPC90ZXh0Pgo8dGV4dCB4PSI0MjEiIHk9IjIyNyIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7snZHri7Ug7Jyg7IukIOKJoCDsi6TtjKg8L3RleHQ+CjxyZWN0IHg9Ijc1NCIgeT0iMTE5IiB3aWR0aD0iMzQyIiBoZWlnaHQ9IjE2OCIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2NiZDVlMSIvPgo8cGF0aCBkPSJNNzYzIDExOSBIMTA4NyBRMTA5NiAxMTkgMTA5NiAxMjggVjE1NyBINzU0IFYxMjggUTc1NCAxMTkgNzYzIDExOSBaIiBmaWxsPSIjZTdmNGVmIi8+Cjx0ZXh0IHg9Ijc2OCIgeT0iMTQ1IiBmb250LXNpemU9IjE3IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPlRYIEIgwrcg7ZmV7J247ZWcIOqysOqzvOulvCDrs7TsobQ8L3RleHQ+Cjx0ZXh0IHg9Ijc2OCIgeT0iMTgxIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNDc1NTY5IiBmb250LXdlaWdodD0iNDAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuusuOyEnCArIOq0gOy4oeyLnOqwgSArIOyDge2DnCArIEV2ZW50PC90ZXh0Pgo8dGV4dCB4PSI3NjgiIHk9IjIwNCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7tmZXsoJXrkJwgT3V0Ym94IOyCreygnDwvdGV4dD4KPHRleHQgeD0iNzY4IiB5PSIyMjciIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+7ZWo6ruYIENPTU1JVDwvdGV4dD4KPHBhdGggZD0iTTM0MiAyMDIgSDQwNyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPHBhdGggZD0iTTY4OSAyMDIgSDc1NCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPHRleHQgeD0iMjQiIHk9IjMxNSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzkyNDAwZSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7spJHri6jrkJjrqbQg64Ko7JWEIOyeiOuKlCBPdXRib3ggLyBTVUJNSVRUSU5HIC8gQ09NUExFVElPTl9VTktOT1dO7JeQ7IScIOyhsO2ajCDrs7XqtaztlZzri6QuPC90ZXh0Pgo8dGV4dCB4PSIyNCIgeT0iMzYzIiBmb250LXNpemU9IjE1IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPuyImOyLoCAvIOykkeuztSDrsKnsp4A8L3RleHQ+CjxyZWN0IHg9IjI0IiB5PSIzODUiIHdpZHRoPSIzMTgiIGhlaWdodD0iMTM1IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjY2JkNWUxIi8+CjxwYXRoIGQ9Ik0zMyAzODUgSDMzMyBRMzQyIDM4NSAzNDIgMzk0IFY0MjMgSDI0IFYzOTQgUTI0IDM4NSAzMyAzODUgWiIgZmlsbD0iI2ZmZjRkZiIvPgo8dGV4dCB4PSIzOCIgeT0iNDExIiBmb250LXNpemU9IjE3IiBmaWxsPSIjMGYxNzJhIiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPlBheSAvIE1lcmNoYW50IOydtOuypO2KuDwvdGV4dD4KPHRleHQgeD0iMzgiIHk9IjQ0NyIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7shJzrqoXCt09yaWdpbsK3U2NoZW1hIOqygOymnTwvdGV4dD4KPHRleHQgeD0iMzgiIHk9IjQ3MCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7rsJzsi6DsnpAgKyBldmVudF9pZCArIGJvZHlfaGFzaDwvdGV4dD4KPHJlY3QgeD0iNDA3IiB5PSIzODUiIHdpZHRoPSI2ODkiIGhlaWdodD0iMTM1IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjY2JkNWUxIi8+CjxwYXRoIGQ9Ik00MTYgMzg1IEgxMDg3IFExMDk2IDM4NSAxMDk2IDM5NCBWNDIzIEg0MDcgVjM5NCBRNDA3IDM4NSA0MTYgMzg1IFoiIGZpbGw9IiNlOGYwZmEiLz4KPHRleHQgeD0iNDIxIiB5PSI0MTEiIGZvbnQtc2l6ZT0iMTciIGZpbGw9IiMwZjE3MmEiIGZvbnQtd2VpZ2h0PSI3MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+7ZWY64KY7J2YIERCIO2KuOuenOyereyFmDwvdGV4dD4KPHRleHQgeD0iNDIxIiB5PSI0NDciIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM0NzU1NjkiIGZvbnQtd2VpZ2h0PSI0MDAiIHRleHQtYW5jaG9yPSJzdGFydCI+SW5ib3ggKyAo7IOB7YOcwrfspp3qsbAg67CY7JiBIOuYkOuKlCDtm4Tsho0g7KGw7ZqMIE91dGJveCkgKyBFdmVudCDihpIgQ09NTUlUPC90ZXh0Pgo8dGV4dCB4PSI0MjEiIHk9IjQ3MCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij7qsJnsnYAgSUTCt+qwmeydgCBIYXNoOiDspJHrs7UgIC8gIOqwmeydgCBJRMK364uk66W4IEhhc2g6IOy2qeuPjDwvdGV4dD4KPHBhdGggZD0iTTM0MiA0NTMgSDQwNyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjEuNyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KPHRleHQgeD0iMjQiIHk9IjU0OCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzQ3NTU2OSIgZm9udC13ZWlnaHQ9IjQwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5JbmJveOunjCDrqLzsoIAg7Luk67CL7ZWY7KeAIOyViuuKlOuLpC4gREIg7J6g6riI7J2EIOuztOycoO2VnCDssYQg7Jm467aAIEhUVFAg7J2R64u17J2EIOq4sOuLpOumrOyngCDslYrripTri6QuPC90ZXh0Pgo8L2c+PC9zdmc+" alt="04 Outbox와 Inbox 트랜잭션" /></p>
+<p>사용자·대상 행을 잠그고 Revision/상태를 확인한 뒤 작업을 기록한다. Cart Revision은 외부 변경이 확정된 후 증가한다. 단일 활성 Outbox 실행기로 시작하며 같은 대상의 미해결 작업을 넘어가지 않는다. 외부 버전이 없거나 순서가 충돌하면 직렬화된 원본 조회를 예약한다.</p>
+<p>사용자 Event ID는 <strong>해당 users 행을 잠근 뒤</strong> 발급하고 커밋까지 잠금을 유지한다. Sequence만으로 커밋 순서가 보장된다고 가정하지 않는다. SSE는 해당 사용자의 ID 이후 이벤트만, 공개 허용 필드로 변환해 전송한다.</p>
+<p>Token 교환은 Hash뿐 아니라 종류·세션·만료·폐기·사용 여부도 확인한다. Refresh 경로는 <code>pkce_challenge IS NULL</code>, Code 경로는 <code>IS NOT NULL</code>이며 Client·선택 URI·PKCE를 검증한다. 사용 표기와 새 Token 발급은 원자적으로 처리한다. 재사용이 확인되면 해당 세션을 폐기한다. 순번 세션 ID는 비밀 Token이 아니다.</p>
+<h2>6. 읽기·인덱스·운영</h2>
+<h3>DB 단독 조회 경로</h3>
+<table>
+<thead>
+<tr>
+<th>필요한 정보</th>
+<th>조회 대상</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>가벼운 앱·Agent 상태</td>
+<td><code>purchase_status</code> — Evidence/Profile/Receipt 전체를 읽지 않는다.</td>
+</tr>
+<tr>
+<td>권한 있는 거래 상세·승인 내용·원문 증거</td>
+<td><code>purchase_detail</code> — 배송지 포함 가능. 일반 Polling에 쓰지 않는다.</td>
+</tr>
+<tr>
+<td>Receipt와 실제 검증 공개키</td>
+<td><code>receipt_evidence</code></td>
+</tr>
+<tr>
+<td>세션별 실제 Scope</td>
+<td><code>session_grants</code></td>
+</tr>
+<tr>
+<td>해석된 감사 / 미해결 작업 / 수신 발신자</td>
+<td><code>event_details</code> / <code>pending_work</code> / <code>inbox_sources</code></td>
+</tr>
+<tr>
+<td>코드 의미·문서 계약</td>
+<td>코드표 VIEW / <code>storage_contracts</code></td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-sql">-- $1: 인증된 사용자 ID, $2: 구매 ID. 실행 드라이버에서 바인딩한다.
+SELECT * FROM core.purchase_status
+WHERE user_id = $1 AND purchase_request_id = $2;
+
+-- 승인 당시 정보가 필요한 권한 있는 상세 경로에서만 실행한다.
+SELECT seller_at_checkout, approved_amount_minor_units, currency,
+       checkout_digest, authorization_receipt, payment_receipt
+FROM core.purchase_detail
+WHERE user_id = $1 AND purchase_request_id = $2;
+</code></pre>
+<p><code>approved_amount_minor_units</code>는 JSON에서 추출한 <strong>정수 금액의 text 표현</strong>이다. 계산할 때는 계약에 맞게 명시적으로 변환한다. 상세 VIEW나 Event Payload 전체를 Agent/SSE에 공개하지 않는다.</p>
+<p>DDL의 인덱스는 정의상 <strong>36개: PK/UNIQUE 22개 + 명시적 14개</strong>다. 주요 보조 경로는 활성 Agent <code>(user_id,id)</code>, 주문 목록 <code>(user_id,id)</code>, Outbox 대상 순서·실행시각, SSE <code>(user_id,id)</code>다. 나머지 유일성은 컬럼 사전에 정의했다. JSON GIN·모든 FK·모든 상태에 보조 인덱스를 일괄 추가하지 않았다.</p>
+<p>Profile/Evidence Hash는 별도 컬럼이 없어도 표현식 인덱스에 저장·계산된다. JSON 파싱·코드표 JOIN·트리거의 비용도 남는다. <strong>실제 용량과 응답시간은 측정 전 미확정</strong>이다.</p>
+<h3>초기화·보존·복원</h3>
+<p>빈 DB에 <code>schema.sql</code>을 적용한다. 신뢰된 공개 Profile을 먼저 저장하고 <code>core_settings</code> 한 행, Merchant/Agent Registry를 채운 뒤 거래를 받는다. 기존 v2 위에 실행하는 ALTER 마이그레이션이 아니다.</p>
+<p>확정된 Outbox는 결과와 함께 삭제한다. 미해결 작업, 중복·재사용 탐지 기록, 거래에 필요한 Profile·Receipt·Event는 임의 TTL로 삭제하지 않는다. 직접 FK가 없는 감사/작업 참조까지 보존 관계를 확인해야 한다.</p>
+<pre><code class="language-bash"># 정의·데이터·VIEW·DOMAIN·함수·COMMENT·시퀀스를 함께 보존한다.
+pg_dump -Fc --no-owner --no-acl &quot;$CORE_DATABASE_URL&quot; -f core.dump
+pg_restore --no-owner --no-acl --dbname=&quot;$RESTORE_DATABASE_URL&quot; core.dump
+</code></pre>
+<p>복원 후 외부 네트워크 없이 <code>purchase_detail</code>, <code>receipt_evidence</code>, <code>session_grants</code>를 읽어 내용·키·권한을 확인한다. 권한/소유자와 실행용 비밀 자격증명의 복원 정책은 별도다. 과거에 저장하지 않은 Profile·Receipt·표시명은 현재 값으로 메워 당시 기록이라고 표시하지 않는다.</p>
+<h2>7. 구현 전 확인할 빈칸과 검증 상태</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>현재 상태 / 필요한 조치</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pay 수집 계약</td>
+<td>비민감 Receipt 원문과 검증 Profile을 Core에 전달하도록 합의·구현해야 한다. 서명 인코딩은 §4의 v3 제안이며 공식 AP2 호환 주장도 아니다.</td>
+</tr>
+<tr>
+<td>주소·문서 입력 계약</td>
+<td>주소 내부 필드, 실제 입력 길이·크기·깊이 제한은 자료에 완전히 확정되어 있지 않다. 저장 전에 검증할 계약을 확정해야 한다.</td>
+</tr>
+<tr>
+<td>보존·Token 수명</td>
+<td>Inbox 재전송 기간·증거 삭제 기간·Token 재사용 탐지 정책을 확정해야 한다. Token 주석의 family absolute expiry 산출 방식은 현재 DDL에 명시되어 있지 않다.</td>
+</tr>
+<tr>
+<td>실행 검증</td>
+<td>기존 패키지는 정적·암호 Fixture 검사만 보고했다. PostgreSQL DDL/통합·동시성·E2E·dump/restore·용량/지연 검증은 미완료다.</td>
+</tr>
+</tbody>
+</table>
+<p>동봉 <code>tests/</code>는 기존 v3의 검증 자료다. 이번 문서화에서는 SQL을 변경하지 않고 컬럼 사전·키·도식·파일 연결을 대조했다. 테스트가 끝난 운영 스키마라고 취급하지 않는다.</p>
+<h2>문서와 도식 사용</h2>
+<p>본문은 <strong>SVG 이미지 블록</strong>, SVG_Blocks.md는 편집용 <code>svg</code> 코드 블록이다. 코드 블록을 이미지 렌더러로 가정하지 않는다. 각 도식의 같은 이름 PNG도 제공한다.</p>
+<p><strong>Obsidian:</strong> 이 폴더와 <code>assets/</code>를 함께 Vault에 넣는다. 이미지가 연결되지 않으면 해당 SVG를 노트로 끌어 넣는다. <strong>Notion:</strong> Markdown을 가져온 뒤 도식 위치의 이미지 블록에 해당 SVG를 업로드한다. 가져오기에서 상대경로 자산이 자동 연결된다고 보장하지 않는다. SVG가 표시되지 않는 환경에서는 동봉 PNG를 사용한다. 표시 방식은 <a href="https://www.notion.com/help/images-files-and-media">Notion 공식 도움말</a>과 <a href="https://obsidian.md/help/file-formats">Obsidian 공식 도움말</a>을 기준으로 확인했으며, 두 앱의 실제 가져오기 테스트는 하지 않았다.</p>
+<p><strong>근거:</strong> 첨부 v3 SQL의 TABLE/DOMAIN/VIEW/COMMENT/트리거 및 <code>core_service_minimal_v3_design.md</code> §1–12. 프로젝트 원문의 소유권 §8, 증거 §11, 복구 §17, MVP §24를 유지했다. 본문은 이 설계의 설명이며 미확정 항목을 새 요구사항으로 보충하지 않았다.</p>
+</main></body></html>

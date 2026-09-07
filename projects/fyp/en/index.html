@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PARK Gunwoo — EyEar</title>
+  <meta name="description" content="Bilingual GitHub Pages portfolio for PARK Gunwoo. EyEar: an AI-oriented wearable sign-language translation project.">
+  <meta name="theme-color" content="#111111">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+  <div class="progress-bar" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="container nav-shell">
+      <a class="brand" href="#overview">PARK Gunwoo</a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="#overview" data-section="overview">Overview</a>
+<a href="#scope" data-section="scope">Scope</a>
+<a href="#architecture" data-section="architecture">Architecture</a>
+<a href="#decisions" data-section="decisions">Decisions</a>
+<a href="#implementation" data-section="implementation">Implementation</a>
+<a href="#results" data-section="results">Results</a>
+<a href="#gallery" data-section="gallery">Gallery</a>
+<a href="#notes" data-section="notes">Notes</a>
+      </nav>
+      <a class="lang-link" href="../ko/" lang="ko" hreflang="ko">KR</a>
+    </div>
+  </header>
+
+  <main>
+    
+<section id="overview" class="hero section">
+  <div class="container">
+    <p class="eyebrow reveal">PARK Gunwoo · Final Year Project · 2024–2025</p>
+    <h1 class="reveal">EyEar</h1>
+    <p class="lead reveal">A bidirectional sign-language translation wearable built around an edge AI server, a Raspberry Pi-based glasses prototype, and two different inference paths: sign-to-text and speech-to-sign.</p>
+    <p class="caption-lead reveal">I worked on the AI pipeline direction, the device/server system structure, and the wearable-side implementation. This page is a technical summary from my side of the project.</p>
+
+    <div class="meta-grid reveal">
+      <div class="meta-item"><strong>Project</strong><span>Bidirectional sign-language translation wearable</span></div>
+      <div class="meta-item"><strong>Focus</strong><span>AI pipeline, system architecture, wearable integration</span></div>
+      <div class="meta-item"><strong>Core stack</strong><span>MediaPipe, Transformer, Wav2Vec2, Flask-SocketIO, Raspberry Pi Zero 2 W</span></div>
+      <div class="meta-item"><strong>Data</strong><span>WLASL for sign-to-text, How2Sign for sentence-level sign generation</span></div>
+    </div>
+
+    <figure class="hero-figure reveal" data-lightbox>
+  <img src="../assets/img/hero-front.jpg" alt="Front view of the final EyEar wearable prototype attached to glasses." loading="lazy">
+  <figcaption>Final wearable prototype. Click to expand.</figcaption>
+</figure>
+
+    <div class="callout reveal">
+      <p>This project was not only about making a model work offline. Once the system became wearable, representation, transport, inference placement, and output format all started to matter as much as raw accuracy.</p>
+    </div>
+  </div>
+</section>
+
+<section id="scope" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">01 · Scope</span>
+      <h2>What I focused on</h2>
+      <p>I treated the work as one system. The model, the server, the device, and the physical form factor had to agree with each other.</p>
+    </div>
+
+    <div class="scope-grid">
+      <article class="scope-card reveal">
+        <h3>AI pipeline direction</h3>
+        <p>I worked on how the AI should be represented and placed inside the product: what stays on device, what moves to the edge server, how the two translation paths should be split, and how to evaluate model behavior separately from capture noise.</p>
+      </article>
+      <article class="scope-card reveal">
+        <h3>System architecture</h3>
+        <p>I pushed the project toward an edge AI structure instead of a device-only demo. That meant thinking about latency budgets, transport cost, API boundaries, and what kind of outputs the wearable could actually display well.</p>
+      </article>
+      <article class="scope-card reveal">
+        <h3>Wearable implementation</h3>
+        <p>I built the wearable side from schematic to prototype to final assembly: hardware planning, Raspberry Pi integration, camera/display/microphone handling, application logic, and unit tests.</p>
+      </article>
+      <article class="scope-card reveal">
+        <h3>System-level debugging</h3>
+        <p>Much of the real work happened in the boundary cases: camera reflections, off-center signing, speech noise, packet timing, and the simple fact that a small wearable device changes what an AI pipeline can realistically do.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="architecture" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">02 · Architecture</span>
+      <h2>System structure</h2>
+      <p>The system was split so the wearable handled capture and output, while the edge server handled the heavier inference and data processing.</p>
+    </div>
+
+    <div class="diagram reveal">
+      <div class="diagram-row">
+        <div class="diagram-node">
+          <h3>Wearable device</h3>
+          <ul>
+            <li>IMX219 camera</li>
+            <li>USB microphone</li>
+            <li>GC9107 display</li>
+            <li>Raspberry Pi Zero 2 W</li>
+          </ul>
+        </div>
+        <div class="diagram-arrow">→</div>
+        <div class="diagram-node">
+          <h3>Edge server</h3>
+          <ul>
+            <li>MediaPipe preprocessing</li>
+            <li>Sign-to-text classifier</li>
+            <li>Speech-to-text + text-to-sign</li>
+            <li>API / WebSocket layer</li>
+          </ul>
+        </div>
+        <div class="diagram-arrow">→</div>
+        <div class="diagram-node">
+          <h3>Returned output</h3>
+          <ul>
+            <li>Text on HUD</li>
+            <li>Generated sign animation</li>
+            <li>Timing and diagnostic data</li>
+          </ul>
+        </div>
+      </div>
+      <p class="diagram-note">The Pi handled I/O and communication. The GPU-backed server handled the inference path that the wearable could not carry alone.</p>
+    </div>
+
+    <div class="pipeline-grid" style="margin-top:16px;">
+      <article class="pipeline-card reveal">
+        <h3>Sign-to-text path</h3>
+        <p>This path was treated as sequence classification.</p>
+        <div class="pipeline-code">camera capture
+→ upload / stream to edge server
+→ MediaPipe pose + face + hand keypoints
+→ normalized sequence windows
+→ Transformer classifier
+→ word prediction
+→ text returned to wearable display</div>
+      </article>
+      <article class="pipeline-card reveal">
+        <h3>Speech-to-sign path</h3>
+        <p>This path was treated as sentence-to-motion generation.</p>
+        <div class="pipeline-code">microphone capture
+→ speech-to-text (Wav2Vec2)
+→ sentence tokens
+→ text-to-sign Transformer
+→ BFH keypoint sequence
+→ skeletal rendering / animation
+→ result returned to device</div>
+      </article>
+    </div>
+
+    <div class="architecture-grid" style="margin-top:16px;">
+      <figure class="figure-frame reveal" data-lightbox>
+  <img src="../assets/img/flowchart.png" alt="Flowchart of the wearable communication process with the server." loading="lazy">
+  <figcaption>Wearable communication flow.</figcaption>
+</figure>
+      <figure class="figure-frame reveal" data-lightbox>
+  <img src="../assets/img/architecture.png" alt="System diagram showing wearable and edge server components." loading="lazy">
+  <figcaption>System diagram from the project report.</figcaption>
+</figure>
+    </div>
+  </div>
+</section>
+
+<section id="decisions" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">03 · Decisions</span>
+      <h2>Design choices that shaped the AI system</h2>
+      <p>Most of the important decisions were not about one model in isolation. They were about how the AI should survive inside the whole system.</p>
+    </div>
+
+    <div class="decision-grid">
+      <article class="decision-card reveal">
+        <span class="decision-no">Decision 01</span>
+        <h3>Use structured keypoints before classification</h3>
+        <p>I did not want the wearable to depend on pushing raw visual complexity all the way through the stack. A keypoint representation made the sign path easier to normalize, easier to window as a sequence, and more realistic for an edge-server setup.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">Decision 02</span>
+        <h3>Split recognition and generation into different AI paths</h3>
+        <p>Sign-to-text and speech-to-sign are not the same problem. One is classification over gesture sequences. The other is sentence-conditioned motion generation. Treating them separately gave the project a cleaner structure and better dataset fit.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">Decision 03</span>
+        <h3>Keep heavy inference on the edge server</h3>
+        <p>The Raspberry Pi Zero 2 W was good enough for capture, display, and transport, but not for the full inference load. Moving the models to the edge server kept the device simple and made the pipeline easier to iterate.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">Decision 04</span>
+        <h3>Favor sequence models that scale with temporal context</h3>
+        <p>The system had to deal with time, not just frames. I pushed the architecture toward Transformer-style sequence modeling because the project needed temporal reasoning, larger vocabularies, and a cleaner way to handle sequential dependencies.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">Decision 05</span>
+        <h3>Use different datasets for the two tasks</h3>
+        <p>WLASL fit isolated word recognition for sign-to-text. How2Sign fit sentence-level generation for speech-to-sign. That split matched the actual structure of the tasks better than forcing one dataset or one model family to do everything.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">Decision 06</span>
+        <h3>Separate capture quality from model quality during evaluation</h3>
+        <p>Live signing mixed together too many variables: camera quality, signer skill, reflections, framing, and model behavior. Using controlled MP4 inputs gave a clearer read on what the classifier was doing and where the real bottlenecks were.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">Decision 07</span>
+        <h3>Keep the sign-to-text output explicit</h3>
+        <p>I preferred a direct word-level output path in the demo rather than hiding model mistakes behind an extra language layer. It made the system easier to debug and kept latency from growing even further.</p>
+      </article>
+      <article class="decision-card reveal">
+        <span class="decision-no">Decision 08</span>
+        <h3>Change the hardware when the AI path demanded it</h3>
+        <p>The device was adjusted around the pipeline. I reduced the display size for a cleaner wearable form, and I moved to a better microphone path because the speech side of the system was only as good as the input audio.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="implementation" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">04 · Implementation</span>
+      <h2>What was implemented</h2>
+      <p>The final system combined AI inference, transport, embedded software, and a wearable hardware prototype.</p>
+    </div>
+
+    <div class="impl-grid">
+      <article class="block reveal">
+        <h3>AI stack</h3>
+        <ul class="list-tight">
+          <li>Sign-to-text built around MediaPipe keypoints and a Transformer classifier</li>
+          <li>Speech-to-sign built as speech-to-text + text-to-sign + skeletal rendering</li>
+          <li>Sentence-level sign generation based on BFH keypoint sequences</li>
+          <li>Separate data flow for recognition and generation</li>
+        </ul>
+      </article>
+      <article class="block reveal">
+        <h3>Wearable stack</h3>
+        <ul class="list-tight">
+          <li>Raspberry Pi Zero 2 W as the device computer</li>
+          <li>IMX219 camera for sign capture</li>
+          <li>GC9107 HUD display for text output</li>
+          <li>USB microphone path for speech input</li>
+        </ul>
+      </article>
+      <article class="block reveal">
+        <h3>Communication layer</h3>
+        <ul class="list-tight">
+          <li>Wi-Fi connection between wearable and server</li>
+          <li>REST endpoints and WebSocket for ongoing exchange</li>
+          <li>Server-side handling for video, audio, inference, and return payloads</li>
+          <li>Timing logs used to separate transport delays from inference delays</li>
+        </ul>
+      </article>
+      <article class="block reveal">
+        <h3>Embedded application</h3>
+        <ul class="list-tight">
+          <li>Raspberry Pi OS setup and peripheral integration</li>
+          <li>Display, camera, and microphone control in the device app</li>
+          <li>Packet simulation and unit tests before full server dependency</li>
+          <li>Final assembly into a glasses-based prototype</li>
+        </ul>
+      </article>
+    </div>
+
+    <div class="gallery-grid" style="margin-top:16px;">
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/schematic.jpg" alt="Hand-drawn hardware schematic for the wearable." loading="lazy">
+  <figcaption>Hand-drawn schematic used as the hardware baseline.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/prototype.jpg" alt="Annotated breadboard prototype with Raspberry Pi, display, and camera." loading="lazy">
+  <figcaption>Prototype stage before final assembly.</figcaption>
+</figure>
+    </div>
+
+    <div class="callout reveal">
+      <p>The hardware work and the AI work were tightly coupled. Device size, capture quality, power, and display constraints kept feeding back into model and pipeline choices.</p>
+    </div>
+  </div>
+</section>
+
+<section id="results" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">05 · Results</span>
+      <h2>What worked and what did not</h2>
+      <p>The project met the accuracy target. It did not meet the original latency target. That difference shaped most of the final trade-offs.</p>
+    </div>
+
+    <div class="data-table-wrap reveal">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Target</th>
+            <th>Observed result</th>
+            <th>Reading</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sign-to-text accuracy</td>
+            <td>≥ 80%</td>
+            <td>86%</td>
+            <td>Target met</td>
+          </tr>
+          <tr>
+            <td>Speech-to-sign accuracy</td>
+            <td>≥ 80%</td>
+            <td>83%</td>
+            <td>Target met</td>
+          </tr>
+          <tr>
+            <td>Sign-to-text latency</td>
+            <td>≤ 1 second</td>
+            <td>~2580 ms server-side processing</td>
+            <td>Target missed</td>
+          </tr>
+          <tr>
+            <td>Speech-to-sign latency</td>
+            <td>≤ 1 second</td>
+            <td>~3212 ms</td>
+            <td>Target missed</td>
+          </tr>
+          <tr>
+            <td>Vocabulary scale</td>
+            <td>Large enough for practical demo</td>
+            <td>2,000-word sign-to-text setting</td>
+            <td>Achieved</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="result-grid" style="margin-top:16px;">
+      <article class="result-card reveal">
+        <h3>What the numbers showed</h3>
+        <p>The AI paths were usable enough to demonstrate the concept. The bigger problem was the end-to-end path: capture quality, server round-trip, and generation time still pulled the system away from true real-time use.</p>
+      </article>
+      <article class="result-card reveal">
+        <h3>Failure modes that mattered</h3>
+        <p>Live capture suffered from framing issues, reflections, and inconsistent signing. Audio degraded in noisy conditions. The Pi-side code remained stable, but the full pipeline was still constrained by transport and inference cost.</p>
+      </article>
+      <article class="result-card reveal">
+        <h3>What was still important</h3>
+        <p>Even with those limits, the project proved that a small wearable device can be used as the front end of an AI communication system. The prototype was not only a model demo; it was a working device-server loop.</p>
+      </article>
+      <article class="result-card reveal">
+        <h3>Why I kept the trade-offs visible</h3>
+        <p>I preferred to show the real constraints instead of polishing the page into a success story. The interesting part of this project was the system boundary, not only the best-case metric.</p>
+      </article>
+    </div>
+
+    <div class="metrics-grid" style="margin-top:16px;">
+      <figure class="figure-frame reveal" data-lightbox>
+  <img src="../assets/img/latency-device.png" alt="Wearable-side latency readout for upload and retrieve delays." loading="lazy">
+  <figcaption>Wearable-side timing snapshot.</figcaption>
+</figure>
+      <figure class="figure-frame reveal" data-lightbox>
+  <img src="../assets/img/latency-server.png" alt="Server-side timing metrics for sign-to-text processing." loading="lazy">
+  <figcaption>Server-side timing snapshot.</figcaption>
+</figure>
+    </div>
+  </div>
+</section>
+
+<section id="gallery" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">06 · Gallery</span>
+      <h2>Build and test artifacts</h2>
+      <p>These are the materials that show the project as a physical system, not just a model diagram. All images open full size.</p>
+    </div>
+
+    <div class="gallery-grid">
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/final-collage.jpg" alt="Collage showing the final wearable prototype from multiple angles." loading="lazy">
+  <figcaption>Final build from multiple angles.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/final-side.jpg" alt="Side view of the final EyEar wearable prototype." loading="lazy">
+  <figcaption>Side view of the final build.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/hardware-overview.png" alt="Overview diagram of the EyEar hardware modules." loading="lazy">
+  <figcaption>Hardware overview diagram.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/repo.png" alt="Repository screenshot showing the embedded code and version control." loading="lazy">
+  <figcaption>Repository and version-control snapshot.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/animation-output.png" alt="Skeleton animation output from the speech-to-sign pipeline." loading="lazy">
+  <figcaption>Sign animation output.</figcaption>
+</figure>
+      <figure class="gallery-card reveal" data-lightbox>
+  <img src="../assets/img/architecture.png" alt="Detailed system diagram from the report." loading="lazy">
+  <figcaption>Detailed system block diagram.</figcaption>
+</figure>
+    </div>
+  </div>
+</section>
+
+<section id="notes" class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <span class="section-index">07 · Notes</span>
+      <h2>What I would change next</h2>
+      <p>If I continue this project, the next work is mostly about making the AI system more reliable under real capture conditions.</p>
+    </div>
+
+    <div class="notes-grid">
+      <article class="note-card reveal">
+        <h3>Better capture quality</h3>
+        <p>A higher-quality camera and tighter calibration would reduce the amount of error that currently gets blamed on the model.</p>
+      </article>
+      <article class="note-card reveal">
+        <h3>More robust audio front end</h3>
+        <p>The speech path needs better noise handling and sentence-boundary control before the generated sign output becomes dependable in real environments.</p>
+      </article>
+      <article class="note-card reveal">
+        <h3>Latency-focused restructuring</h3>
+        <p>I would keep pushing preprocessing closer to the device, reduce transport cost, and revisit which parts of the inference path can be simplified without losing the structure of the task.</p>
+      </article>
+      <article class="note-card reveal">
+        <h3>More fluent language layer</h3>
+        <p>Once the core capture and inference path is stable, a higher-level language layer can be added more safely. I would not hide that behind a polished demo before the low-level path is trustworthy.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-shell">
+      <span>PARK Gunwoo · EyEar technical summary</span><a href="../ko/" lang="ko" hreflang="ko">한국어 페이지</a>
+    </div>
+  </footer>
+
+  <div class="lightbox" aria-hidden="true">
+    <button class="lightbox-close" type="button" aria-label="Close image">×</button>
+    <div class="lightbox-inner">
+      <img alt="">
+      <div class="lightbox-caption"></div>
+    </div>
+  </div>
+</body>
+</html>

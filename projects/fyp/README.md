@@ -4,7 +4,8 @@ Minimal bilingual long-scroll portfolio page built with plain HTML, CSS, and Jav
 
 ## Structure
 
-- `index.html` — English page
+- `index.html` — directory listing
+- `en/index.html` — English page
 - `ko/index.html` — Korean page
 - `assets/styles.css` — shared styles
 - `assets/main.js` — scroll progress, section highlight, reveal animation, image lightbox
