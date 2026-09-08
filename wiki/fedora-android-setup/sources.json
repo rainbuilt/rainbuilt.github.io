@@ -1,0 +1,359 @@
+[
+  {
+    "id": "S01",
+    "title": "Android Studio 다운로드와 안정판",
+    "used_for": "Quail 4, Linux 파일, 체크섬, 업데이트",
+    "url": "https://developer.android.com/studio",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S02",
+    "title": "Android Studio 설치",
+    "used_for": "Linux 요구사항, 실행 파일, 데스크톱 항목",
+    "url": "https://developer.android.com/studio/install",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S03",
+    "title": "Android 17 출시 공지",
+    "used_for": "정식 출시와 API 37",
+    "url": "https://developer.android.com/blog/posts/android-17-is-here",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S04",
+    "title": "AGP 9.4.0 릴리스",
+    "used_for": "Gradle, JDK, Build Tools 호환표",
+    "url": "https://developer.android.com/build/releases/agp-9-4-0-release-notes",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S05",
+    "title": "Java versions in Android builds",
+    "used_for": "JBR과 JDK 선택",
+    "url": "https://developer.android.com/build/jdks",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S06",
+    "title": "Compose Quick start",
+    "used_for": "Kotlin과 Empty Activity",
+    "url": "https://developer.android.com/develop/ui/compose/setup",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S07",
+    "title": "Android command-line tools",
+    "used_for": "SDK 패키지별 도구",
+    "url": "https://developer.android.com/tools",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S08",
+    "title": "Configure your build",
+    "used_for": "AGP, 프로젝트 구조, 설정",
+    "url": "https://developer.android.com/build",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S09",
+    "title": "Build from the command line",
+    "used_for": "APK, 빌드와 설치, 테스트용 서명",
+    "url": "https://developer.android.com/build/building-cmdline",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S10",
+    "title": "Create and manage virtual devices",
+    "used_for": "AVD와 이미지 선택",
+    "url": "https://developer.android.com/studio/run/managing-avds",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S11",
+    "title": "Emulator hardware acceleration",
+    "used_for": "KVM, ABI, 그래픽 모드",
+    "url": "https://developer.android.com/studio/run/emulator-acceleration",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S12",
+    "title": "Run apps on a hardware device",
+    "used_for": "USB와 무선 디버깅",
+    "url": "https://developer.android.com/studio/run/device",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S13",
+    "title": "DNF5 Upgrade",
+    "used_for": "운영체제 패키지 업데이트",
+    "url": "https://dnf5.readthedocs.io/en/latest/commands/upgrade.8.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S14",
+    "title": "DNF5 Install",
+    "used_for": "패키지 설치",
+    "url": "https://dnf5.readthedocs.io/en/latest/commands/install.8.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S15",
+    "title": "Fedora 44 zlib-ng-compat",
+    "used_for": "zlib 호환 패키지",
+    "url": "https://packages.fedoraproject.org/pkgs/zlib-ng/zlib-ng-compat/fedora-44.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S16",
+    "title": "Built-in Kotlin migration",
+    "used_for": "AGP 9의 Kotlin 지원",
+    "url": "https://developer.android.com/build/migrate-to-built-in-kotlin",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S17",
+    "title": "Gradle Wrapper",
+    "used_for": "프로젝트별 Gradle 실행",
+    "url": "https://docs.gradle.org/current/userguide/gradle_wrapper.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S18",
+    "title": "sdkmanager",
+    "used_for": "SDK 관리와 라이선스",
+    "url": "https://developer.android.com/tools/sdkmanager",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S19",
+    "title": "Android 17 SDK setup",
+    "used_for": "API 37과 SDK 설정",
+    "url": "https://developer.android.com/about/versions/17/setup-sdk",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S20",
+    "title": "Android environment variables",
+    "used_for": "ANDROID_HOME과 SDK 경로",
+    "url": "https://developer.android.com/tools/variables",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S21",
+    "title": "zsh Files",
+    "used_for": ".zshrc와 ZDOTDIR",
+    "url": "https://zsh.sourceforge.io/Doc/Release/Files.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S22",
+    "title": "zsh Parameters",
+    "used_for": "path와 PATH",
+    "url": "https://zsh.sourceforge.io/Doc/Release/Parameters.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S23",
+    "title": "Fedora 44 android-tools",
+    "used_for": "Fedora 패키지에 포함된 adb",
+    "url": "https://packages.fedoraproject.org/pkgs/android-tools/android-tools/fedora-44.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S24",
+    "title": "Gradle Daemon",
+    "used_for": "Daemon JVM criteria 우선순위",
+    "url": "https://docs.gradle.org/current/userguide/gradle_daemon.html#sec:daemon_jvm_criteria",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S25",
+    "title": "Linux KVM API",
+    "used_for": "/dev/kvm 인터페이스",
+    "url": "https://docs.kernel.org/virt/kvm/api.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S26",
+    "title": "systemd 기본 장치 규칙",
+    "used_for": "KVM 장치 권한의 구성",
+    "url": "https://raw.githubusercontent.com/systemd/systemd/main/rules.d/50-udev-default.rules.in",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S27",
+    "title": "Android Debug Bridge",
+    "used_for": "기기 목록, 인증, 설치, 서버",
+    "url": "https://developer.android.com/tools/adb",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S28",
+    "title": "Emulator command line",
+    "used_for": "AVD 실행과 스냅샷 옵션",
+    "url": "https://developer.android.com/studio/run/emulator-commandline",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S29",
+    "title": "uses-sdk",
+    "used_for": "minSdk와 targetSdk",
+    "url": "https://developer.android.com/guide/topics/manifest/uses-sdk-element",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S30",
+    "title": "Compose compiler 설정",
+    "used_for": "Compose compiler 플러그인",
+    "url": "https://developer.android.com/develop/ui/compose/compiler",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S31",
+    "title": "Kotlin 기본 문법",
+    "used_for": "함수, 클래스, 변수",
+    "url": "https://kotlinlang.org/docs/basic-syntax.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S32",
+    "title": "State and Jetpack Compose",
+    "used_for": "상태와 rememberSaveable",
+    "url": "https://developer.android.com/develop/ui/compose/state",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S33",
+    "title": "Compose Scaffold",
+    "used_for": "화면 여백과 콘텐츠 배치",
+    "url": "https://developer.android.com/develop/ui/compose/components/scaffold",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S34",
+    "title": "Logcat",
+    "used_for": "로그 필터와 오류 확인",
+    "url": "https://developer.android.com/studio/debug/logcat",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S35",
+    "title": "Debug your app",
+    "used_for": "중단점과 디버거",
+    "url": "https://developer.android.com/studio/debug",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S36",
+    "title": "Local unit tests",
+    "used_for": "PC JVM에서 실행하는 테스트",
+    "url": "https://developer.android.com/training/testing/local-tests",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S37",
+    "title": "Compose testing",
+    "used_for": "테스트 의존성과 Rule",
+    "url": "https://developer.android.com/develop/ui/compose/testing",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S38",
+    "title": "Compose BOM",
+    "used_for": "Compose 버전 조합",
+    "url": "https://developer.android.com/develop/ui/compose/bom",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S39",
+    "title": "Compose testing cheatsheet",
+    "used_for": "노드 조회와 검사",
+    "url": "https://developer.android.com/develop/ui/compose/testing/testing-cheatsheet",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S40",
+    "title": "systemd uaccess 규칙",
+    "used_for": "Android USB 인터페이스 감지",
+    "url": "https://raw.githubusercontent.com/systemd/systemd/main/rules.d/70-uaccess.rules.in",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S41",
+    "title": "systemd udev",
+    "used_for": "규칙의 조건과 태그",
+    "url": "https://www.freedesktop.org/software/systemd/man/udev.html",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S42",
+    "title": "Git gitignore",
+    "used_for": "제외 규칙과 추적 파일",
+    "url": "https://git-scm.com/docs/gitignore",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S43",
+    "title": "Sign your app",
+    "used_for": "서명과 키 보관",
+    "url": "https://developer.android.com/studio/publish/app-signing",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S44",
+    "title": "Configure Android Studio",
+    "used_for": "프록시와 IDE 설정",
+    "url": "https://developer.android.com/studio/intro/studio-config",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S45",
+    "title": "Emulator troubleshooting",
+    "used_for": "그래픽과 부팅 진단",
+    "url": "https://developer.android.com/studio/run/emulator-troubleshooting",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S46",
+    "title": "NDK와 CMake 설치",
+    "used_for": "Side by side 설치",
+    "url": "https://developer.android.com/studio/projects/install-ndk",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S47",
+    "title": "Android NDK ABI",
+    "used_for": "ABI별 네이티브 코드",
+    "url": "https://developer.android.com/ndk/guides/abis",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S48",
+    "title": "Notion 가져오기",
+    "used_for": "Markdown 지원과 제약",
+    "url": "https://www.notion.com/help/import-data-into-notion",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S49",
+    "title": "Notion 코드 블록",
+    "used_for": "코드 언어와 블록 표시",
+    "url": "https://www.notion.com/help/code-blocks",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S50",
+    "title": "GitHub Pages 게시 설정",
+    "used_for": "브랜치, 루트 폴더, 정적 파일",
+    "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site",
+    "checked_on": "2026-09-08"
+  },
+  {
+    "id": "S51",
+    "title": "Activity lifecycle",
+    "used_for": "Activity 생성과 onCreate",
+    "url": "https://developer.android.com/guide/components/activities/activity-lifecycle",
+    "checked_on": "2026-09-08"
+  }
+]

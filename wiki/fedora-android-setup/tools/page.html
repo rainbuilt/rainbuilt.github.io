@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Fedora 44 KDE에서 Kotlin과 Jetpack Compose로 Android 개발 환경을 준비하는 학습 가이드. 설치 원리, KVM, 첫 앱, 테스트와 문제 해결을 함께 설명합니다.">
+<title>Fedora에서 첫 Android 앱까지 | Fedora Lab</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/styles.css">
+<script src="assets/app.js" defer></script>
+<script src="assets/model.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#content">본문으로 이동</a>
+<header class="topbar">
+  <a class="brand" href="#top" aria-label="Fedora Lab 처음으로"><span class="brand-mark" aria-hidden="true">f<span>/</span>a</span><span>FEDORA LAB<small>ANDROID DEVELOPMENT</small></span></a>
+  <div class="top-actions"><button type="button" class="search-trigger" data-open-search>문서에서 찾기 <kbd>Ctrl K</kbd></button><a href="guide.md" download class="md-link">마크다운</a><button type="button" id="theme-toggle" class="icon-button" aria-label="어두운 화면으로 전환">테마</button><button type="button" id="nav-toggle" class="icon-button mobile-only" aria-expanded="false" aria-controls="sidebar">목차</button></div>
+</header>
+<div class="site-shell" id="top">
+<aside id="sidebar" class="sidebar" aria-label="문서 목차">
+  <div class="sidebar-inner">
+    <div class="sidebar-heading"><span class="eyebrow">FIELD GUIDE 01</span><p>Fedora 44 KDE<br>Android 개발 환경</p></div>
+    <div class="reading-state"><div><span>확인한 장</span><strong id="progress-count">0 / 19</strong></div><progress id="reading-progress" value="0" max="19" aria-label="확인한 장의 수"></progress></div>
+    <nav class="chapter-nav">{{TOC}}</nav>
+    <div class="sidebar-bottom"><a href="#ch14">문제 해결 바로 보기</a><button type="button" id="reset-progress">읽기 기록 지우기</button><p>기준일 2026-09-08<br>로컬 저장 / 외부 전송 없음</p></div>
+  </div>
+</aside>
+<main id="content">
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <p class="eyebrow hero-eyebrow"><span class="status-dot" aria-hidden="true"></span> FEDORA 44 / KDE PLASMA</p>
+    <h1 id="hero-title">Fedora에서<br>첫 Android<br><span>앱까지.</span></h1>
+    <p class="hero-lead">설치한 도구가 어디에서 무엇을 하는지<br class="desktop-only"> 확인하며 첫 앱을 만듭니다.</p>
+    <div class="hero-tags"><span>Kotlin</span><span>Jetpack Compose</span><span>KVM</span></div>
+    <div class="hero-actions"><a class="primary-link" href="#ch00">00장부터 시작하기 <span aria-hidden="true">&gt;</span></a><a class="text-link" href="#ch10">첫 앱 살펴보기</a></div>
+    <p class="hero-meta">2026-09-08 확인 / 공식 자료 51개</p>
+  </div>
+  <figure class="model-card" aria-labelledby="model-heading">
+    <div class="model-heading"><span class="eyebrow">EXPLODED VIEW</span><span class="model-badge">3D / 직접 회전</span></div>
+    <h2 id="model-heading">앱 아래에는 무엇이 있을까요?</h2>
+    <div class="model-viewport">
+      <canvas id="stack-model" tabindex="0" aria-label="개발 환경의 3D 관계 모형. 마우스로 끌거나 방향키로 회전합니다."></canvas>
+      <svg class="model-fallback" viewBox="0 0 540 400" role="img" aria-label="Fedora와 KVM 위에서 Emulator가 Android 앱을 실행하는 관계 모형">
+        <defs><linearGradient id="fallback-g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d5e9ff"/><stop offset="1" stop-color="#80a8d0"/></linearGradient></defs>
+        <ellipse cx="275" cy="345" rx="180" ry="35" fill="#152f4710"/>
+        <path d="M70 264L260 184L469 265L278 347Z" fill="#193747"/><path d="M70 264V284L278 367V347Z" fill="#102a3a"/><path d="M278 347L469 265V285L278 367Z" fill="#33586b"/>
+        <path d="M89 205L260 134L451 207L278 281Z" fill="url(#fallback-g)"/><path d="M89 205V218L278 294V281Z" fill="#638dae"/><path d="M278 281L451 207V220L278 294Z" fill="#a0bad1"/>
+        <path d="M143 135L265 85L397 137L274 190Z" fill="#a4d7c0"/><path d="M143 135V151L274 205V190Z" fill="#5da78d"/><path d="M274 190L397 137V152L274 205Z" fill="#7ebeaa"/>
+        <path d="M174 72L267 33L368 73L274 115Z" fill="#fffef6" stroke="#6a8b7c"/><path d="M174 72V83L274 127V115Z" fill="#b6c2ae"/><path d="M274 115L368 73V84L274 127Z" fill="#e3e8d4"/>
+        <text x="271" y="76" text-anchor="middle" fill="#193747" font-size="15">APP</text><text x="274" y="157" text-anchor="middle" fill="#193747" font-size="15">ANDROID</text><text x="274" y="245" text-anchor="middle" fill="#193747" font-size="15">FEDORA + KVM</text><text x="280" y="323" text-anchor="middle" fill="#eff7f9" font-size="15">HARDWARE</text>
+      </svg>
+      <div class="model-hint" id="model-hint">관계 설명용 모형</div>
+    </div>
+    <div class="model-controls"><label for="explode">층 간격</label><input id="explode" type="range" min="0" max="100" value="68" aria-label="3D 모형의 층 간격"><button type="button" id="model-reset">시점 초기화</button></div>
+    <div class="layer-tabs" role="group" aria-label="관심 있는 층 선택"><button type="button" data-layer="0" aria-pressed="true">01 PC</button><button type="button" data-layer="1" aria-pressed="false">02 Fedora</button><button type="button" data-layer="2" aria-pressed="false">03 Android</button><button type="button" data-layer="3" aria-pressed="false">04 앱</button></div>
+    <figcaption id="layer-description" aria-live="polite">PC: Ryzen의 CPU 가상화 기능을 Linux KVM에서 사용합니다.</figcaption>
+  </figure>
+</section>
+<div class="guide-summary"><div><strong>19</strong><span>설치부터 설명 연습까지</span></div><div><strong>07</strong><span>단계와 관계를 담은 도식</span></div><div><strong>01</strong><span>카운터 앱과 UI 테스트</span></div></div>
+<div class="editor-note"><span class="note-label">읽기 전에</span><p>기준 PC는 AMD Ryzen, NVIDIA GPU, Wayland, zsh 환경입니다. 사용자의 PC에서 직접 설치하거나 앱을 빌드한 결과는 포함하지 않았습니다. 각 장의 확인 절차로 현재 상태를 점검하세요.</p></div>
+<article class="guide-body">{{BODY}}</article>
+<footer class="page-footer"><div class="footer-mark">f/a</div><p>Fedora 44 KDE Android 개발 가이드<br><span>기준일 2026-09-08 / 원문: guide.md</span></p><a href="#top">처음으로</a></footer>
+</main>
+</div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="search-top"><h2 id="search-title">문서에서 찾기</h2><button type="button" id="close-search" aria-label="검색 닫기">닫기</button></div><label for="search-input" class="visually-hidden">검색어</label><input id="search-input" type="search" placeholder="KVM, zsh, 검은 화면, JAVA_HOME..." autocomplete="off"><p id="search-status" role="status">제목과 본문에서 검색합니다.</p><div id="search-results"></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<noscript><p class="noscript-note">JavaScript가 꺼져 있습니다. 본문, 코드, SVG 도식과 목차 링크를 읽을 수 있습니다. 검색, 복사 버튼, 읽기 기록, 3D 회전은 JavaScript를 사용합니다.</p></noscript>
+</body>
+</html>
