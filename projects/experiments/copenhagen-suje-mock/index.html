@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#ffffff"><title>코펜하겐 · UX Mock</title></head>
+<body><main id="loading" style="font-family:system-ui,sans-serif;padding:24px">Mock을 불러오는 중…</main>
+<script>
+(async()=>{
+ const files=['payload-0.txt','payload-1.txt','payload-2.txt','payload-3.txt','payload-4.txt','payload-5.txt','payload-6.txt'];
+ const chunks=await Promise.all(files.map(f=>fetch(f,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(f+' '+r.status);return r.text()})));
+ const b64=chunks.join(''); const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+ const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+ const html=await new Response(stream).text(); document.open(); document.write(html); document.close();
+})().catch(err=>{document.getElementById('loading').innerHTML='<h1>Mock을 불러오지 못했습니다.</h1><p>최신 Safari 또는 Chrome에서 다시 열어주세요.</p><pre>'+String(err)+'</pre>';});
+</script></body></html>
