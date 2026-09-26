@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>글자 수 및 단어 수</title>
+</head>
+<body>
+<p><a href="../">../</a></p>
+<h1>글자 수 및 단어 수</h1>
+<p><label for="input">텍스트</label></p>
+<textarea id="input" rows="12" cols="60"></textarea>
+<p>글자 수 (공백 포함): <output id="with-spaces">0</output></p>
+<p>글자 수 (공백 제외): <output id="without-spaces">0</output></p>
+<p>단어 수: <output id="words">0</output></p>
+<script>
+  document.getElementById('input').addEventListener('input', event => {
+    const text = event.target.value;
+    document.getElementById('with-spaces').textContent = Array.from(text).length;
+    document.getElementById('without-spaces').textContent = Array.from(text.replace(/\s/gu, '')).length;
+    document.getElementById('words').textContent = text.trim() ? text.trim().split(/\s+/u).length : 0;
+  });
+</script>
+</body>
+</html>

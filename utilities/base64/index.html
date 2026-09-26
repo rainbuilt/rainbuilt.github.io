@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Base64 변환</title>
+</head>
+<body>
+<p><a href="../">../</a></p>
+<h1>Base64 변환</h1>
+<p><label for="input">입력</label></p>
+<textarea id="input" rows="10" cols="60"></textarea>
+<p>
+  <button type="button" id="encode">평문 → Base64</button>
+  <button type="button" id="decode">Base64 → 평문</button>
+</p>
+<p id="message" role="status" aria-live="polite"></p>
+<p><label for="output">결과</label></p>
+<textarea id="output" rows="10" cols="60" readonly></textarea>
+<script>
+  const input = document.getElementById('input');
+  const output = document.getElementById('output');
+  const message = document.getElementById('message');
+
+  document.getElementById('encode').addEventListener('click', () => {
+    const bytes = new TextEncoder().encode(input.value);
+    output.value = btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join(''));
+    message.textContent = '';
+  });
+
+  document.getElementById('decode').addEventListener('click', () => {
+    try {
+      const bytes = Uint8Array.from(atob(input.value), character => character.charCodeAt(0));
+      output.value = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      message.textContent = '';
+    } catch {
+      output.value = '';
+      message.textContent = '유효한 Base64로 인코딩된 UTF-8 텍스트를 입력하세요.';
+    }
+  });
+</script>
+</body>
+</html>
