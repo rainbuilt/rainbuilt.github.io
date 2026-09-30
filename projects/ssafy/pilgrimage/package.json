@@ -1,0 +1,11 @@
+{
+  "name": "pilgrimage-portfolio",
+  "private": true,
+  "scripts": {
+    "build": "esbuild graphics-src.js --bundle --format=iife --target=es2020 --minify --legal-comments=eof --outfile=graphics.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "three": "0.180.0"
+  }
+}

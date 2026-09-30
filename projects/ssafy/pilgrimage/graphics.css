@@ -1,0 +1,62 @@
+/* The original document remains the print and non-WebGL version. */
+.motion-figure { display: none; }
+
+@media screen {
+  .page.has-motion { height: auto; }
+  .enhanced-static { display: none; }
+  .motion-figure.is-ready { display: block; margin: 13px 0 4px; }
+  .motion-figure[hidden] { display: none; }
+  .motion-topline { display: flex; align-items: center; justify-content: space-between; min-height: 24px; gap: 12px; color: var(--secondary); }
+  .motion-topline > code { font-size: 11px; }
+  .motion-tools { display: flex; align-items: center; gap: 12px; margin-left: auto; font-size: 11px; }
+  .motion-tools button { padding: 2px 0; border: 0; background: transparent; color: #656565; font-size: 11px; cursor: pointer; }
+  .motion-tools button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .motion-stage { position: relative; height: 148px; margin: 0 -12px; touch-action: pan-y; cursor: grab; }
+  .motion-stage.is-dragging { cursor: grabbing; }
+  .motion-stage canvas { width: 100%; height: 100%; display: block; }
+  .motion-stage:focus-visible { outline: 1px solid #888; outline-offset: -5px; }
+  .motion-steps { display: grid; grid-template-columns: repeat(var(--step-count), minmax(0, 1fr)); gap: 12px; }
+  .motion-step { text-align: left; color: #777; background: none; border: 0; border-top: 1px solid var(--line); padding: 8px 0 3px; cursor: pointer; font-size: 12px; line-height: 1.5; transition: border-color 180ms, color 180ms; }
+  .motion-step > span { margin-right: 6px; color: #888; font-size: 10px; font-variant-numeric: tabular-nums; }
+  .motion-step[aria-pressed="true"] { color: var(--ink); border-top-color: #3c3c3c; }
+  .motion-step:hover { color: var(--ink); border-top-color: #929292; }
+  .motion-caption { margin: 9px 0 0; min-height: 22px; color: #686868; font-size: 12px; line-height: 1.75; }
+  .motion-caption strong { color: #444; font-weight: 500; margin-right: 9px; }
+  .motion-actions { display: flex; align-items: center; gap: 16px; margin-top: 9px; min-height: 25px; }
+  .motion-actions button { border: 0; border-bottom: 1px solid #bcbcbc; padding: 2px 0; color: #565656; background: transparent; font-size: 12px; line-height: 1.5; cursor: pointer; }
+  .motion-actions button:hover, .motion-actions button[aria-pressed="true"] { color: #242424; border-bottom-color: #242424; }
+  .motion-actions button:disabled { opacity: .4; cursor: default; }
+  .motion-actions .motion-status { margin-left: auto; font-size: 11px; color: #777; }
+  .motion-figure[data-kind="transaction"] { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .motion-figure[data-kind="transaction"] .motion-stage { height: 163px; }
+  .motion-figure[data-kind="batch"] .motion-stage { height: 140px; }
+  .motion-figure[data-kind="batch"] .motion-steps { gap: 9px; }
+  .motion-figure[data-kind="batch"] .motion-step { font-size: 11px; }
+  .motion-figure[data-kind="batch"] .motion-step > span { display: block; margin-bottom: 2px; }
+}
+
+@media screen and (max-width: 599px) {
+  .motion-stage { height: 133px; margin: 0 -14px; }
+  .motion-figure[data-kind="transaction"] .motion-stage { height: 150px; }
+  .motion-figure[data-kind="batch"] .motion-stage { height: 160px; }
+  .motion-topline { flex-wrap: wrap; gap: 4px; }
+  .motion-topline > code { font-size: 10px; }
+  .motion-tools { font-size: 10px; gap: 10px; }
+  .motion-tools button { font-size: 10px; }
+  .motion-steps { gap: 8px; }
+  .motion-step { font-size: 11px; }
+  .motion-step > span { display: block; margin-bottom: 3px; }
+  .motion-figure[data-kind="batch"] .motion-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 10px; }
+  .motion-figure[data-kind="batch"] .motion-step > span { display: inline; }
+  .motion-caption { min-height: 42px; }
+  .motion-actions { gap: 14px; }
+  .motion-actions .motion-status { font-size: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-step { transition: none; }
+}
+
+@media print {
+  .motion-figure { display: none !important; }
+}
