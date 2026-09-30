@@ -1,271 +1,159 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pilgrimage</title>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="박건우">
+  <meta name="description" content="박건우의 Pilgrimage 프로젝트 포트폴리오. 프로젝트 개요, 여행 계획 API, 데이터 수집 배치의 설계와 구현을 정리했습니다.">
+  <title>Pilgrimage | 박건우 포트폴리오</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#overview">본문으로 이동</a>
+  <nav class="toolbar" aria-label="포트폴리오 목차">
+    <a class="document-name" href="#overview">Pilgrimage <span>/ 박건우</span></a>
+    <div class="page-links">
+      <a href="#overview" aria-current="location"><span>1</span> 오버뷰</a>
+      <a href="#backend"><span>2</span> 백엔드</a>
+      <a href="#batch"><span>3</span> 데이터 수집 배치</a>
+    </div>
+    <button class="print-button" type="button">인쇄 / PDF 저장</button>
+  </nav>
 
-    <style>
-      :root {
-        --bg: #f7f6f3;
-        --page: #ffffff;
-        --text: #2f3437;
-        --muted: #6b6f76;
-        --border: #e6e4df;
-        --soft: #f1f1ef;
-        --accent: #8b5cf6;
-        --accent-soft: #f1edff;
-      }
+  <main>
+    <article class="page overview" id="overview" aria-labelledby="overview-title">
+      <header class="page-header"><span>프로젝트 오버뷰</span><span>박건우</span></header>
+      <div class="page-content">
+        <h1 id="overview-title">Pilgrimage</h1>
+        <p class="subtitle">드라마 촬영지 기반 여행 계획 서비스</p>
+        <p class="introduction">작품의 촬영지를 찾고, 주변 장소를 모아 여행 일정을 만드는 서비스입니다.<br class="desktop-break"> 저는 화면 개발부터 여행 계획 API, 데이터 수집 배치와 배포 자동화까지 담당했습니다.</p>
 
-      * {
-        box-sizing: border-box;
-      }
+        <dl class="properties">
+          <div><dt>개발 기간</dt><dd>2026.06 - 2026.08</dd></div>
+          <div><dt>역할</dt><dd>풀스택 개발</dd></div>
+          <div><dt>주요 기술</dt><dd>Java 21, Spring Boot 3, MyBatis, MySQL<br>Spring Batch, Vue 3, Pinia, AWS S3</dd></div>
+          <div><dt>수상</dt><dd>SSAFY 1학기 프로젝트 우수상</dd></div>
+          <div><dt>저장소</dt><dd><a href="https://github.com/macchiato3671/pilgrimage">github.com/macchiato3671/pilgrimage</a></dd></div>
+        </dl>
 
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-          sans-serif;
-        line-height: 1.65;
-      }
+        <section class="block" aria-labelledby="service-flow-title">
+          <h2 id="service-flow-title">서비스 이용 흐름</h2>
+          <ol class="service-flow">
+            <li><span class="flow-index">01</span>촬영지 탐색</li>
+            <li><span class="flow-index">02</span>주변 장소 검색</li>
+            <li><span class="flow-index">03</span>위시리스트 저장</li>
+            <li><span class="flow-index">04</span>여행 일정 편집</li>
+          </ol>
+        </section>
 
-      .page {
-        width: min(880px, calc(100% - 32px));
-        margin: 48px auto;
-        padding: 56px;
-        background: var(--page);
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        box-shadow: 0 20px 60px rgba(15, 15, 15, 0.06);
-      }
+        <section class="block" aria-labelledby="contribution-title">
+          <h2 id="contribution-title">직접 맡은 작업</h2>
+          <table class="contributions">
+            <tbody>
+              <tr><th scope="row">백엔드</th><td>여행 계획 CRUD와 세부 일정 일괄 동기화 API를 개발하고,<br class="desktop-break"> 소유권과 입력 검증, 트랜잭션 처리를 구현했습니다.</td></tr>
+              <tr><th scope="row">데이터 수집</th><td>외부 게시물에서 작품과 촬영지 정보를 수집하고,<br class="desktop-break"> 작품 매칭, 좌표 변환, 이미지 저장을 배치로 구성했습니다.</td></tr>
+              <tr><th scope="row">프론트엔드</th><td>지도와 전역 일정 편집기를 구현하고,<br class="desktop-break"> 비회원의 로컬 데이터를 로그인 후 서버로 옮기도록 했습니다.</td></tr>
+              <tr><th scope="row">협업과 배포</th><td>FastAPI Mock 서버로 화면 개발을 진행할 수 있게 하고,<br class="desktop-break"> GitHub Actions로 빌드와 배포를 자동화했습니다.</td></tr>
+            </tbody>
+          </table>
+        </section>
 
-      .eyebrow {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 12px;
-        margin-bottom: 24px;
-        border-radius: 999px;
-        background: var(--accent-soft);
-        color: var(--accent);
-        font-size: 14px;
-        font-weight: 600;
-      }
-
-      h1 {
-        margin: 0 0 12px;
-        font-size: clamp(40px, 6vw, 64px);
-        letter-spacing: -0.04em;
-        line-height: 1.05;
-      }
-
-      .subtitle {
-        margin: 0 0 36px;
-        color: var(--muted);
-        font-size: 19px;
-      }
-
-      .divider {
-        height: 1px;
-        margin: 36px 0;
-        background: var(--border);
-      }
-
-      h2 {
-        margin: 0 0 14px;
-        font-size: 24px;
-        letter-spacing: -0.02em;
-      }
-
-      p {
-        margin: 0 0 16px;
-      }
-
-      .section {
-        margin-bottom: 34px;
-      }
-
-      .callout {
-        display: flex;
-        gap: 14px;
-        padding: 18px 20px;
-        margin: 24px 0;
-        background: var(--soft);
-        border-radius: 12px;
-        color: var(--text);
-      }
-
-      .callout-icon {
-        flex: 0 0 auto;
-        font-size: 20px;
-      }
-
-      .properties {
-        display: grid;
-        grid-template-columns: 160px 1fr;
-        gap: 10px 18px;
-        padding: 20px;
-        margin-top: 20px;
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        background: #fbfbfa;
-      }
-
-      .property-name {
-        color: var(--muted);
-        font-size: 14px;
-      }
-
-      .property-value {
-        font-size: 14px;
-      }
-
-      .tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 18px;
-      }
-
-      .tag {
-        padding: 5px 10px;
-        border-radius: 999px;
-        background: #efefed;
-        color: #4d5156;
-        font-size: 13px;
-      }
-
-      .footer {
-        margin-top: 44px;
-        padding-top: 24px;
-        border-top: 1px solid var(--border);
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      @media (max-width: 640px) {
-        .page {
-          margin: 20px auto;
-          padding: 32px 24px;
-          border-radius: 14px;
-        }
-
-        .properties {
-          grid-template-columns: 1fr;
-          gap: 4px;
-        }
-
-        .property-value {
-          margin-bottom: 10px;
-        }
-      }
-    </style>
-  </head>
-
-  <body>
-    <main class="page">
-      <div class="eyebrow">🎬 Collaborative Full-Stack Project</div>
-
-      <h1>Pilgrimage</h1>
-
-      <p class="subtitle">
-        A Korean drama filming location discovery and travel planning web
-        application.
-      </p>
-
-      <div class="callout">
-        <div class="callout-icon">🧭</div>
-        <div>
-          Pilgrimage is a collaborative full-stack web application practice
-          project developed by Rainbuilt and macchiato3671. The project is
-          designed to help users discover Korean drama filming locations and
-          plan travel routes based on those locations.
-        </div>
+        <section class="block closing-note" aria-labelledby="approach-title">
+          <h2 id="approach-title">개발할 때 중요하게 본 것</h2>
+          <p>요구사항을 기준으로 각 요소의 책임을 나누었습니다. 일정 저장과 데이터 수집에서는 잘못된 입력을 거부할 지점과 실패한 작업의 재처리 방법을 먼저 정했습니다.</p>
+        </section>
       </div>
+      <footer class="page-footer"><a href="mailto:rbtree0303@gmail.com">rbtree0303@gmail.com</a><span>1 / 3</span></footer>
+    </article>
 
-      <div class="divider"></div>
+    <article class="page backend" id="backend" aria-labelledby="backend-title">
+      <header class="page-header"><span>Pilgrimage / 백엔드</span><span>박건우</span></header>
+      <div class="page-content">
+        <h1 id="backend-title">백엔드</h1>
+        <p class="subtitle">편집한 일정이 그대로 저장되도록</p>
+        <p class="stack">Java 21 / Spring Boot 3 / MyBatis / MySQL</p>
 
-      <section class="section">
-        <h2>Overview</h2>
-        <p>
-          The goal of Pilgrimage is to connect Korean drama metadata with real
-          filming locations, making it easier for users to explore places they
-          have seen in dramas and turn them into travel plans.
-        </p>
-        <p>
-          Users will be able to search for dramas, browse drama detail pages,
-          discover related filming locations, and organize those locations into
-          travel routes.
-        </p>
-      </section>
+        <section class="block first-block" aria-labelledby="backend-problem-title">
+          <h2 id="backend-problem-title">일정 저장의 단위</h2>
+          <p>사용자는 한 번의 편집에서 장소를 추가하고, 기존 일정을 수정하거나 삭제할 수 있습니다. 각 변경을 따로 저장하면 일부만 반영될 수 있다고 판단했습니다. 화면과 DB의 상태가 어긋나지 않도록 전체 편집 결과를 한 요청으로 받아 검증한 뒤 함께 저장했습니다.</p>
+        </section>
 
-      <section class="section">
-        <h2>Use of the TMDB API</h2>
-        <p>
-          The TMDB API will be used to fetch drama metadata such as titles,
-          posters, overviews, cast, crew, genres, and air dates.
-        </p>
-        <p>
-          Filming location data will be managed separately by the application.
-          API requests will be handled from the backend server, and TMDB API
-          credentials will not be exposed publicly.
-        </p>
-      </section>
+        <section class="block" aria-labelledby="rules-title">
+          <h2 id="rules-title">저장 전에 확인한 조건</h2>
+          <table class="rules-table">
+            <thead><tr><th scope="col">검증 대상</th><th scope="col">처리 규칙</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">계획 소유권</th><td>인증 사용자와 계획 소유자가 일치하는지 확인합니다.</td></tr>
+              <tr><th scope="row">날짜와 시간</th><td>날짜와 시간 형식을 검증하고 여행 기간 밖의 일정을 거부합니다.</td></tr>
+              <tr><th scope="row">세부 일정 ID</th><td>중복 ID와 해당 계획에 속하지 않은 ID를 거부합니다.</td></tr>
+              <tr><th scope="row">일정의 장소</th><td>촬영지와 일반 장소 중 하나만 참조하고 존재 여부를 확인합니다.</td></tr>
+            </tbody>
+          </table>
+        </section>
 
-      <section class="section">
-        <h2>Project Details</h2>
+        <section class="block" aria-labelledby="transaction-title">
+          <h2 id="transaction-title">삭제부터 추가까지 하나의 트랜잭션으로</h2>
+          <p>전체 입력의 검증이 끝나면 요청에서 빠진 기존 항목을 삭제하고, ID가 있는 항목은 수정하며, ID가 없는 항목은 추가했습니다. 이 과정을 <code>@Transactional</code>로 묶어 처리 중 오류가 나면 변경이 함께 롤백되도록 했습니다.</p>
+          <figure class="transaction-flow">
+            <figcaption><code>PUT /api/v1/plans/{planId}/details</code></figcaption>
+            <div class="transaction-line"><span>소유권과 입력 검증</span><span aria-hidden="true">→</span><span>삭제 / 수정 / 추가</span><span aria-hidden="true">→</span><span>저장 결과 반환</span></div>
+          </figure>
+        </section>
 
-        <div class="properties">
-          <div class="property-name">Project Name</div>
-          <div class="property-value">Pilgrimage</div>
+        <section class="block verification" aria-labelledby="backend-check-title">
+          <h2 id="backend-check-title">응답과 DB 결과를 함께 검증</h2>
+          <p>Testcontainers 기반 MySQL 환경에서 <strong>통합 테스트 33개</strong>를 구성했습니다. 정상 처리, 권한 오류, 입력 오류를 검증하고, 일정 동기화에서는 응답과 DB를 함께 확인해 삭제, 수정, 추가가 의도대로 반영되는지 점검했습니다.</p>
+        </section>
+        <div class="code-reference"><span>구현</span><code>PlanServiceImpl.updatePlanDetails()</code><span>검증</span><code>PlanIntegrationTest</code></div>
+      </div>
+      <footer class="page-footer"><span>프로젝트 포트폴리오</span><span>2 / 3</span></footer>
+    </article>
 
-          <div class="property-name">Project Type</div>
-          <div class="property-value">
-            Collaborative full-stack web application
-          </div>
+    <article class="page batch" id="batch" aria-labelledby="batch-title">
+      <header class="page-header"><span>Pilgrimage / 데이터 수집 배치</span><span>박건우</span></header>
+      <div class="page-content">
+        <h1 id="batch-title">데이터 수집 배치</h1>
+        <p class="subtitle">모호한 데이터와 중간 실패를 처리하기</p>
+        <p class="stack">Spring Batch / MySQL / TMDB API / Kakao API / AWS S3</p>
 
-          <div class="property-name">Developers</div>
-          <div class="property-value">Rainbuilt and macchiato3671</div>
+        <section class="block first-block" aria-labelledby="batch-problem-title">
+          <h2 id="batch-problem-title">여섯 단계로 나눈 수집 과정</h2>
+          <p>외부 게시물을 활용하려면 작품명을 맞추고, 주소를 좌표로 바꾸고, 이미지를 저장해야 했습니다. 실패한 지점을 확인하고 다시 처리할 수 있도록 Spring Batch의 단계별 작업으로 나누었습니다.</p>
+          <ol class="batch-flow" aria-label="데이터 수집 배치의 실행 순서">
+            <li><span>01</span><strong>게시물 탐색</strong><small>수집 대상 등록</small></li>
+            <li><span>02</span><strong>본문 파싱</strong><small>작품과 장소 추출</small></li>
+            <li><span>03</span><strong>작품 매칭</strong><small>TMDB 정보 연결</small></li>
+            <li><span>04</span><strong>촬영지 저장</strong><small>주소 검증과 좌표화</small></li>
+            <li><span>05</span><strong>이미지 저장</strong><small>WebP 변환 후 S3 저장</small></li>
+            <li><span>06</span><strong>결과 집계</strong><small>처리 상태 확인</small></li>
+          </ol>
+        </section>
 
-          <div class="property-name">Purpose</div>
-          <div class="property-value">
-            Development practice and educational purposes
-          </div>
+        <section class="block" aria-labelledby="matching-title">
+          <h2 id="matching-title">모호한 후보를 처리하는 기준</h2>
+          <p>제목만으로 작품을 확정하지 않도록 대체 제목, 국가, 언어, 연도도 점수에 반영했습니다. 기준 점수와 상위 두 후보의 점수 차를 함께 확인하고, 조건을 만족하지 못한 작품이나 주소가 모호한 촬영지는 검수할 수 있도록 중간 상태로 남겼습니다.</p>
+        </section>
 
-          <div class="property-name">Main Feature</div>
-          <div class="property-value">
-            Korean drama filming location discovery and travel planning
-          </div>
+        <section class="block" aria-labelledby="restart-title">
+          <h2 id="restart-title">실패한 실행을 이어서 처리하기</h2>
+          <p>게시물, 촬영지, 이미지의 처리 상태를 staging 테이블에 저장했습니다. 실행이 실패하면 같은 <code>ingestKey</code>로 완료된 단계 이후부터 이어가도록 구성했습니다. 오류 코드와 메시지도 남겨 재처리 대상을 확인할 수 있게 했습니다.</p>
+          <div class="restart-note"><p>실패한 실행의 재시작은 같은 ingestKey, 완료 후 새 수집은 새로운 ingestKey</p></div>
+        </section>
 
-          <div class="property-name">API Usage</div>
-          <div class="property-value">
-            Korean drama metadata synchronization using the TMDB API
-          </div>
-        </div>
+        <section class="block" aria-labelledby="retry-title">
+          <h2 id="retry-title">외부 호출과 중복 저장 관리</h2>
+          <p>외부 API에는 호출 속도 제한과 재시도를 적용하고, 재시도 가능한 오류를 구분했습니다. 이미지는 WebP로 변환한 뒤 SHA-256 기반의 S3 키를 사용해 같은 콘텐츠가 중복 업로드되는 것을 줄였습니다.</p>
+        </section>
 
-        <div class="tags">
-          <span class="tag">Korean Drama</span>
-          <span class="tag">Filming Locations</span>
-          <span class="tag">Travel Planning</span>
-          <span class="tag">Full-Stack Practice</span>
-          <span class="tag">TMDB API</span>
-        </div>
-      </section>
-
-      <section class="section">
-        <h2>Status</h2>
-        <p>
-          This project is currently in the early development stage. This public
-          page is provided to describe the purpose of the application and its
-          intended use of drama metadata.
-        </p>
-      </section>
-
-      <footer class="footer">
-        <p>© 2026 Pilgrimage. Developed by Rainbuilt and macchiato3671.</p>
-      </footer>
-    </main>
-  </body>
+        <section class="block verification" aria-labelledby="batch-check-title">
+          <h2 id="batch-check-title">매칭과 재실행 기준 검증</h2>
+          <p><strong>12개 클래스에 배치 테스트 28개</strong>를 작성했습니다. 모호한 작품 후보의 거부, 동일 이미지의 S3 키 일치, 입력 순서에 따른 수집 키의 안정성을 확인했습니다. 실패 상태 점검 SQL과 재시작 절차도 문서로 남겼습니다.</p>
+        </section>
+        <div class="code-reference"><span>구현</span><code>PilgrimageIngestJobConfig</code><span>운영 문서</span><code>pilgrimage-ingest.md</code></div>
+      </div>
+      <footer class="page-footer"><span>프로젝트 포트폴리오</span><span>3 / 3</span></footer>
+    </article>
+  </main>
+</body>
 </html>
