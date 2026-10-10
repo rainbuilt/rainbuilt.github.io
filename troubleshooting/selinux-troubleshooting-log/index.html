@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SELinux 설정 문제 해결 기록</title>
+  <style>
+    body {
+      max-width: 52rem;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.75;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.35;
+    }
+
+    h2 {
+      margin-top: 2em;
+    }
+
+    h3 {
+      margin-top: 1.75em;
+    }
+
+    li + li {
+      margin-top: 0.5em;
+    }
+
+    code {
+      font-size: 0.95em;
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      padding: 0.75rem 1rem;
+      border: 1px solid #ddd;
+      background: #f7f7f7;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
+
+    @media print {
+      body {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      h2, h3 {
+        break-after: avoid;
+      }
+
+      pre {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>SELinux 설정 문제 해결 기록</h1>
+
+      <section aria-labelledby="situation">
+        <h2 id="situation">Situation — 상황</h2>
+        <p>Fedora Linux 44에서 SELinux 경고 알림이 주기적으로 발생했다.</p>
+        <p>이전에 llama.cpp를 설치하면서 <code>logrotate</code>가 <code>/srv/llama-cpp/logs/*.log</code>를 관리하도록 설정했다. 그러나 로그 디렉터리의 SELinux 라벨이 로그 관리에 적합하지 않아, <code>logrotate</code>의 디렉터리 읽기가 차단되고 있었다.</p>
+        <p><code>logrotate</code>는 별도의 타이머에 따라 실행되므로, llama.cpp를 실행하고 있지 않을 때도 경고가 발생했다.</p>
+      </section>
+
+      <section aria-labelledby="task">
+        <h2 id="task">Task — 목표</h2>
+        <ol>
+          <li>SELinux 경고를 발생시키는 프로세스와 접근 대상을 확인한다.</li>
+          <li>차단된 접근이 정상적인 작업에 필요한지 판단한다.</li>
+          <li>필요한 설정을 수정하고, 문제가 해결됐는지 검증한다.</li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="action">
+        <h2 id="action">Action — 조치</h2>
+        <ol>
+          <li>OpenAI Codex를 활용해 <code>journalctl</code>에 기록된 경고와 서비스 로그를 확인했다.</li>
+          <li><code>logrotate</code>가 <code>/srv/llama-cpp/logs</code> 디렉터리를 읽으려다 차단된 사실을 확인했다.</li>
+          <li>SELinux의 접근 제어 방식과 파일 라벨을 조사했다. 해당 디렉터리에는 일반적인 <code>/srv</code> 데이터에 사용하는 <code>var_t</code>가 적용되어 있었다.</li>
+          <li>
+            로그 디렉터리와 그 하위 파일에 <code>var_log_t</code>를 적용하도록 경로별 라벨 설정을 등록했다.
+            <pre><code>sudo semanage fcontext -a -t var_log_t '/srv/llama-cpp/logs(/.*)?'</code></pre>
+          </li>
+          <li>
+            등록한 설정을 실제 디렉터리와 파일에 적용했다.
+            <pre><code>sudo restorecon -Rv /srv/llama-cpp/logs</code></pre>
+          </li>
+          <li>변경된 라벨을 확인한 뒤 <code>logrotate.service</code>를 수동 실행했다. 서비스 로그와 SELinux 거부 로그를 확인해 같은 문제가 다시 발생하는지 검증했다.</li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="result">
+        <h2 id="result">Result — 결과</h2>
+        <p>테스트에서 <code>logrotate.service</code>가 정상적으로 완료됐고, 해당 디렉터리 접근에 대한 새로운 SELinux 거부가 발생하지 않았음을 확인했다.</p>
+        <p>SELinux의 접근 허용 규칙을 추가하는 대신, 로그 디렉터리의 라벨을 기존 정책에 맞게 수정해 문제를 해결했다.</p>
+      </section>
+
+      <section aria-labelledby="memo">
+        <h2 id="memo">Memo — 배운 점</h2>
+
+        <h3>1. <code>semanage fcontext</code>와 <code>restorecon</code>은 역할이 다르다.</h3>
+        <p><code>semanage fcontext</code>는 “이 경로에는 어떤 라벨이 있어야 하는가”라는 설정을 저장한다. <code>restorecon</code>은 그 설정에 맞춰 실제 파일과 디렉터리의 라벨을 변경한다.</p>
+        <p>따라서 설정을 미리 준비하고 적용 시점을 조절할 수 있다. 대상 파일이 많을 때는 필요한 경로부터 순차적으로 적용하는 것도 가능하다. 이번에는 로그 디렉터리에만 변경이 필요했으므로 적용 범위를 그곳으로 한정했다. <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/using_selinux/troubleshooting-problems-related-to-selinux_using-selinux">파일 라벨 문제 해결 설명</a></p>
+
+        <h3>2. <code>chcon</code>은 실제 라벨을 직접 변경한다.</h3>
+        <p><code>chcon</code>으로는 경로별 라벨 설정을 등록하지 않고 파일이나 디렉터리의 라벨을 변경할 수 있다. 다만 이후 <code>restorecon</code>을 실행하면 등록된 설정에 맞춰 라벨이 다시 변경될 수 있다.</p>
+        <p>지속적으로 유지할 경로별 라벨은 <code>semanage fcontext</code>에 등록하고 <code>restorecon</code>으로 적용하는 방식이 적합하다. <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/using_selinux/troubleshooting-problems-related-to-selinux_using-selinux">관련 설명</a></p>
+
+        <h3>3. SELinux는 라벨과 허용 규칙에 기반한 접근 제어 기능이다.</h3>
+        <p>파일뿐 아니라 실행 중인 프로세스에도 SELinux 라벨이 있다. 커널은 프로세스의 라벨, 접근 대상의 라벨, 요청한 작업을 정책과 비교해 접근을 허용하거나 차단한다.</p>
+        <p>프로그램이 설치되면서 스스로 “로그 관리 프로그램”이라고 신고해 권한을 얻는 방식은 아니다. 배포판이나 관리자가 마련한 정책이 권한과 실행 시 라벨 전환을 결정한다. 일반적인 파일 소유권과 읽기·쓰기 권한도 함께 적용된다. <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/using_selinux/getting-started-with-selinux_using-selinux">SELinux 접근 제어 설명</a></p>
+
+        <h3>4. 로그 관리 프로그램은 다른 프로그램의 로그에도 접근할 수 있다.</h3>
+        <p>SELinux 정책이 허용하는 라벨의 로그이고, 일반적인 파일 권한도 허용한다면 다른 프로그램의 로그를 읽을 수 있다.</p>
+        <p>이때 <strong>접근할 수 있는 범위</strong>와 <strong>실제로 관리하도록 설정된 대상</strong>은 구분해야 한다. <code>logrotate</code>가 실제로 어떤 로그를 관리할지는 설정 파일이 정한다.</p>
+
+        <h3>5. SELinux가 켜져 있다고 모든 프로그램이 엄격하게 격리되는 것은 아니다.</h3>
+        <p>직접 빌드하고 설치한 프로그램에도 기존 SELinux 정책은 적용되지만, 그 프로그램만을 위한 제한 정책이 자동으로 만들어지지는 않는다.</p>
+        <p>현재 내 계정은 <code>unconfined_t</code>로 실행되므로, 터미널에서 실행하는 일반 프로그램은 내 계정의 파일에 넓게 접근할 수 있다. 프로그램별 접근 범위를 좁히려면 별도의 정책이나 샌드박스가 필요하다. <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/using_selinux/managing-confined-and-unconfined-users">제한된 사용자와 제한되지 않은 사용자 설명</a></p>
+
+        <h3>6. SELinux는 신뢰하는 프로그램이 공격당했을 때도 의미가 있다.</h3>
+        <p>공식 패키지 서명은 프로그램에 취약점이 없다는 보장이 아니다. SELinux의 제한 정책은 정상 프로그램이 취약점으로 장악되더라도, 허용되지 않은 파일이나 다른 서비스의 자원에 접근하는 것을 막아 피해 범위를 줄일 수 있다. <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/using_selinux/getting-started-with-selinux_using-selinux">SELinux의 보호 효과</a></p>
+      </section>
+    </article>
+  </main>
+</body>
+</html>
